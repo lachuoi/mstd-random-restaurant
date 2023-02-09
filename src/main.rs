@@ -10,13 +10,13 @@ use serde_yaml;
 use rand::seq::SliceRandom;
 use rand::distributions::{Alphanumeric, DistString};
 
-use cities::City;
-
 use serde_json::Value;
 use serde_json::json;
 
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::CONTENT_TYPE;
+
+use serde::Deserialize;
 
 #[derive(Debug, Default)]
 struct Restaurant {
@@ -31,16 +31,36 @@ struct Restaurant {
     mstd_media_ids: Vec<i64>,
 }
 
-fn get_random_city(r: &mut Restaurant) {
-    // Rantomly select the city
-    // cities list: https://github.com/tidwall/cities-rs/blob/master/src/lib.rs
+#[derive(Debug, Deserialize, Clone)]
+struct Geopoint {
+    lat: f64,
+    lng: f64,
+    iso2: String,
+    population: Option<i64>,
+}
 
-    // Only US for now.
+fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
+
+    /*
     let target_cities: Vec<&City> = cities::all().iter().filter(
         |&c| c.country == "United States").collect::<Vec<&City>>();
+    */
 
-    match target_cities.choose(&mut rand::thread_rng()) {
-        Some(c) => { r.lat = c.latitude; r.lng = c.longitude; },
+    let mut weighted_points: Vec<Geopoint> = Vec::new();
+    for gp in g {
+        if ( gp.population != None && gp.population.unwrap() > 25000 ) {
+            weighted_points.push(gp.clone());
+        }
+
+        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+        if weighted_countries.contains(&gp.clone().iso2.as_str())   {
+            weighted_points.push(gp.clone());
+            weighted_points.push(gp);
+        }
+    }
+
+    match weighted_points.choose(&mut rand::thread_rng()) {
+        Some(c) => { r.lat = c.lat; r.lng = c.lng; },
         None => panic!("No city picked up"),
     }
 }
@@ -57,8 +77,8 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("Hotel".to_string())) &&
-            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) &&
+        if ! i["types"].as_array().unwrap().contains(&Value::String("Hotel".to_string())) ||
+            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string()))
         {
             filtered_places.push(i.clone());
@@ -248,13 +268,21 @@ fn rating_stars(rating: f64) -> String {
 
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let config_str = include_str!("log4rs.yaml");
     let config = serde_yaml::from_str(config_str).unwrap();
     log4rs::init_raw_config(config).unwrap();
 
+    let pointscsv = include_str!("geopoints.csv").as_bytes();
+    let mut geopoints: Vec<Geopoint> = Vec::new();
+    let mut rdr = csv::Reader::from_reader(pointscsv);
+    for result in rdr.deserialize() {
+        let record: Geopoint = result?;
+        geopoints.push(record);
+    }
+
     let mut rr: Restaurant = Restaurant::default();
-    get_random_city(&mut rr);
+    get_random_city(&mut rr, geopoints);
     search_nearby(&mut rr);
     info!("name: {}", rr.name);
     info!("pid: {}", rr.place_id);
@@ -284,6 +312,8 @@ fn main() {
 
     println!("{:#?}", rr);
     debug!("Hello, world!");
+
+    Ok(())
 }
 
 
