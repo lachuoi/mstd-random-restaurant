@@ -50,7 +50,7 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
     let url: String = format!(
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius=5000&type=restaurant&key={}",
+        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius=50000&type=restaurant&key={}",
         r.lat, r.lng, api_key
     );
     let resp: Value = reqwest::blocking::get(url)?.json().unwrap();
