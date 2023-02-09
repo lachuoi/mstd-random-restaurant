@@ -41,11 +41,6 @@ struct Geopoint {
 
 fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
-    /*
-    let target_cities: Vec<&City> = cities::all().iter().filter(
-        |&c| c.country == "United States").collect::<Vec<&City>>();
-    */
-
     let mut weighted_points: Vec<Geopoint> = Vec::new();
     for gp in g {
         if ( gp.population != None && gp.population.unwrap() > 25000 ) {
@@ -54,7 +49,6 @@ fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
         let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
         if weighted_countries.contains(&gp.clone().iso2.as_str())   {
-            weighted_points.push(gp.clone());
             weighted_points.push(gp);
         }
     }
@@ -88,8 +82,12 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
     r.place_id = p.clone()["place_id"].as_str().unwrap().to_string();
     r.name = p.clone()["name"].as_str().unwrap().to_string();
-    r.rating = p["rating"].as_f64().unwrap();
-
+    if p.get("rating").is_some() {
+        r.rating = p["rating"].as_f64().unwrap();
+    } else {
+        r.rating = 0.0;
+    };
+    
     Ok(())
 }
 
