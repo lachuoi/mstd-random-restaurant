@@ -1,9 +1,8 @@
 version: "3"
 services:
-  mstd-random-cafe:
-    container_name: mstd-random-cafe
-    image: codeberg.org/sa/mstd-random-cafe:latest
+  mstd-random-restaurant:
+    container_name: "mstd-random-restaurant"
+    image: "mstd-random-restaurant"
     env_file: .env
-
-
+    restart: always
 
