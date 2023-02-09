@@ -178,9 +178,7 @@ async fn upload_mstd_images(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
                 AUTHORIZATION,
                 format!("Bearer {access_token}"),
             )
-            .multipart(form)
-            .send()
-            .await?;
+            .multipart(form).send().await?;
         if c.status() != 200 {
             info!("Uploading image failed: {}", c.status());
             panic!("Uploading image failed");
@@ -198,7 +196,7 @@ async fn post_message(r: &Restaurant) -> Result<(), Box<dyn Error>> {
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
 
-    let msg: String = format!("{}; {}; {} https://www.google.com/maps/search/?api=1&query={},{}&query_place_id={}",
+    let msg: String = format!("{}\n{}\n{}\nhttps://www.google.com/maps/search/?api=1&query={},{}&query_place_id={}",
         r.name,
         r.address,
         rating_stars(r.rating),
@@ -224,9 +222,7 @@ async fn post_message(r: &Restaurant) -> Result<(), Box<dyn Error>> {
             CONTENT_TYPE,
             "application/json"
         )
-        .json(&b)
-        .send()
-        .await;
+        .json(&b).send().await;
     match res {
         Ok(_) => info!("New cartoon posted!"),
         Err(e) => error!("Error on carton posting! {}", e),
