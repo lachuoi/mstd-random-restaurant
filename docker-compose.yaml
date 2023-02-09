@@ -1,0 +1,8 @@
+version: "3"
+services:
+  mstd-random-restaurant:
+    container_name: "mstd-random-restaurant"
+    image: "mstd-random-restaurant"
+    env_file: .env
+    restart: always
+
