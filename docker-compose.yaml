@@ -4,6 +4,6 @@ services:
     container_name: "mstd-random-cafe"
     image: "mstd-random-cafe"
     env_file: .env
-    restart: always
+    #restart: always
 
 
