@@ -71,9 +71,11 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("Hotel".to_string())) ||
+        if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string()))
+            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
+            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string())) ||
+            ! i["types"].as_array().unwrap().contains(&Value::String("cafe".to_string()))
         {
             filtered_places.push(i.clone());
         }
@@ -255,7 +257,6 @@ fn clean_images(r: &Restaurant) -> std::io::Result<()> {
     std::fs::remove_dir_all(r.pics_tmp_dir.as_str())?;
     Ok(())
 }
-
 
 fn rating_stars(rating: f64) -> String {
     let major: usize = (rating - (rating % 1.0)) as usize;
