@@ -4,5 +4,4 @@ services:
     container_name: "mstd-random-restaurant"
     image: "mstd-random-restaurant"
     env_file: .env
-    #restart: always
 
