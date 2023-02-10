@@ -111,7 +111,11 @@ fn get_place_details(r: &mut Place) -> Result<(), Box<dyn Error>> {
     //println!("{:#?}", resp["result"]["photos"]);
 
     let mut n: usize = 0;
-    if resp["result"]["photos"].as_array().unwrap().len() < 4 {
+    if resp["result"]["photos"].as_array().unwrap().len() == 0 {
+        info!("No image from google");
+        // return error and take care that error at main
+        return Err("No image found".into());
+    } else if resp["result"]["photos"].as_array().unwrap().len() < 4 {
         n = resp["result"]["photos"].as_array().unwrap().len();
     } else {
         n = 4
@@ -257,16 +261,13 @@ fn clean_images(r: &Place) -> std::io::Result<()> {
 }
 
 fn rating_stars(rating: f64) -> String {
-
     let major: usize = (rating - (rating % 1.0)) as usize;
-    let minor: usize = ((rating % 1.0) * 10.0) as usize;
-
+    let minor: f64 = (rating % 1.0) ;
     let mut star: String = "★".repeat(major);
-    if minor >= 5 {
-      star = format!("{star}☆");
+    if minor > 0.0 {
+        star = format!("{star}☆");
     }
     star
-
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -333,23 +334,44 @@ mod tests {
 
     #[test]
     #[ignore = "not yet implemented"]
-    fn test_get_random_city() {
+    fn test_get_random_city() -> Result<(), Box<dyn Error>> {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result?;
+            geopoints.push(record);
+        }
+
         let mut rr: Place = Place::default();
-        let c = get_random_city(&mut rr);
+        let c = get_random_city(&mut rr, geopoints);
         debug!("{:#?}", c);
         //assert!(!c.is_err());
+
+        Ok(())
     }
 
     #[test]
-    fn test_search_nearby() {
+    fn test_search_nearby() -> Result<(), Box<dyn Error>> {
         let mut rr: Place = Place::default();
-        let c = get_random_city(&mut rr);
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result?;
+            geopoints.push(record);
+        }
+
+        let c = get_random_city(&mut rr, geopoints);
         //println!("{:#?}", search_nearby(c));
+        Ok(())
     }
 
     #[test]
     fn test_rating_stars() {
-        println!("{}", rating_stars(3.7));
+        println!("{}", rating_stars(0.1));
     }
 
 }
