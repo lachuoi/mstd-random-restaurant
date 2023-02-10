@@ -108,7 +108,10 @@ fn get_place_details(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     //println!("{:#?}", resp["result"]["photos"]);
 
     let mut n: usize = 0;
-    if resp["result"]["photos"].as_array().unwrap().len() < 4 {
+    if resp["result"]["photos"].as_array().unwrap().len() == 0 {
+        info!("No picture from google");
+        // return certain error and take care that error at main
+    } else if resp["result"]["photos"].as_array().unwrap().len() < 4 {
         n = resp["result"]["photos"].as_array().unwrap().len();
     } else {
         n = 4
@@ -253,17 +256,15 @@ fn clean_images(r: &Restaurant) -> std::io::Result<()> {
     Ok(())
 }
 
+
 fn rating_stars(rating: f64) -> String {
-
     let major: usize = (rating - (rating % 1.0)) as usize;
-    let minor: usize = ((rating % 1.0) * 10.0) as usize;
-
+    let minor: f64 = (rating % 1.0) ;
     let mut star: String = "★".repeat(major);
-    if minor >= 5 {
-      star = format!("{star}☆");
+    if minor > 0.0 {
+        star = format!("{star}☆");
     }
     star
-
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
