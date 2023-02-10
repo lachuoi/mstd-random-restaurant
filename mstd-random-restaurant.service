@@ -11,7 +11,7 @@ User=root
 Group=docker
 WorkingDirectory=/apps/mstd-random-restaurant
 # Shutdown container (if running) when unit is started
-ExecStartPre=/usr/bin/docker compose -f docker-compose.yaml up --force-recreate
+ExecStartPre=/usr/bin/docker compose -f docker-compose.yaml create
 # Start container when unit is started
 ExecStart=/usr/bin/docker compose -f docker-compose.yaml start
 # Stop container when unit is stopped
