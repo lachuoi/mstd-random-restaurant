@@ -11,11 +11,11 @@ User=root
 Group=docker
 WorkingDirectory=/apps/mstd-random-cafe
 # Shutdown container (if running) when unit is started
-ExecStartPre=/usr/bin/docker compose -f docker-compose.yaml down
+ExecStartPre=/usr/bin/docker compose -f docker-compose.yaml up --force-recreate
 # Start container when unit is started
-ExecStart=/usr/bin/docker compose -f docker-compose.yaml up
+ExecStart=/usr/bin/docker compose -f docker-compose.yaml start
 # Stop container when unit is stopped
-ExecStop=/usr/bin/docker compose -f docker-compose.yaml down
+ExecStop=/usr/bin/docker compose -f docker-compose.yaml stop
 
 [Install]
 WantedBy=multi-user.target
