@@ -40,16 +40,18 @@ struct Geopoint {
 }
 
 fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
-    
-    let mut weighted_points: Vec<Geopoint> = Vec::new();
-    for gp in g {
-        if ( gp.population != None && gp.population.unwrap() > 25000 ) {
-            weighted_points.push(gp.clone());
-        }
 
-        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
-        if weighted_countries.contains(&gp.clone().iso2.as_str())   {
-            weighted_points.push(gp);
+    let mut weighted_points: Vec<Geopoint> = Vec::new();
+    let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+
+    let mg = g.iter().filter( |&g|
+        g.population.unwrap_or(0) > 25000_i64
+    ).cloned().collect::<Vec<Geopoint>>();
+
+    for gp in mg {
+        if weighted_countries.contains(&gp.clone().iso2.as_str())
+        {
+            weighted_points.push(gp.clone());
         }
     }
 
@@ -57,6 +59,7 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
         Some(c) => { r.lat = c.lat; r.lng = c.lng; },
         None => panic!("No city picked up"),
     }
+
 }
 
 fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
@@ -334,25 +337,38 @@ mod tests {
 
     #[test]
     #[ignore = "not yet implemented"]
+<<<<<<< HEAD
     fn test_get_random_city() -> Result<(), Box<dyn Error>> {
+=======
+    fn test_get_random_city() {
+>>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
 
         let pointscsv = include_str!("geopoints.csv").as_bytes();
         let mut geopoints: Vec<Geopoint> = Vec::new();
         let mut rdr = csv::Reader::from_reader(pointscsv);
         for result in rdr.deserialize() {
+<<<<<<< HEAD
             let record: Geopoint = result?;
+=======
+            let record: Geopoint = result.unwrap();
+>>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
             geopoints.push(record);
         }
 
         let mut rr: Place = Place::default();
         let c = get_random_city(&mut rr, geopoints);
+<<<<<<< HEAD
         debug!("{:#?}", c);
+=======
+        debug!("{:#?}", rr);
+>>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
         //assert!(!c.is_err());
 
         Ok(())
     }
 
     #[test]
+<<<<<<< HEAD
     fn test_search_nearby() -> Result<(), Box<dyn Error>> {
         let mut rr: Place = Place::default();
 
@@ -365,6 +381,21 @@ mod tests {
         }
 
         let c = get_random_city(&mut rr, geopoints);
+=======
+    fn test_search_nearby() {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result.unwrap();
+            geopoints.push(record);
+        }
+
+        let mut rr: Place = Place::default();
+        let c = get_random_city(&mut rr, geopoints);
+
+>>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
         //println!("{:#?}", search_nearby(c));
         Ok(())
     }
