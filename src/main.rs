@@ -73,15 +73,19 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("cafe".to_string()))
+        if i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("lodging".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("grocery_or_supermarket".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("night_club".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("bar".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("cafe".to_string()))
         {
-            filtered_places.push(i.clone());
+            continue;
         }
+        filtered_places.push(i.clone());
     };
 
     let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
