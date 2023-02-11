@@ -71,7 +71,7 @@ fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("Hotel".to_string())) ||
+        if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
