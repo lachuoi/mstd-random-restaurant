@@ -42,18 +42,14 @@ struct Geopoint {
 fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
-    for gp in g {
-        // All cities where population is more than 25,000
-        if gp.population != None && gp.population.unwrap() > 25000
-        {
-            weighted_points.push(gp.clone());
-        }
+    let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
 
-        // cities where popuation is more than 25,000 AND in weigted countries
-        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
-        if gp.population != None &&
-            gp.population.unwrap() > 25000 &&
-            weighted_countries.contains(&gp.clone().iso2.as_str())
+    let mg = g.iter().filter( |&g|
+        g.population.unwrap_or(0) > 25000_i64
+    ).cloned().collect::<Vec<Geopoint>>();
+
+    for gp in mg {
+        if weighted_countries.contains(&gp.clone().iso2.as_str())
         {
             weighted_points.push(gp.clone());
         }
@@ -339,16 +335,35 @@ mod tests {
     #[test]
     #[ignore = "not yet implemented"]
     fn test_get_random_city() {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result.unwrap();
+            geopoints.push(record);
+        }
+
         let mut rr: Restaurant = Restaurant::default();
-        let c = get_random_city(&mut rr);
-        debug!("{:#?}", c);
+        let c = get_random_city(&mut rr, geopoints);
+        debug!("{:#?}", rr);
         //assert!(!c.is_err());
     }
 
     #[test]
     fn test_search_nearby() {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result.unwrap();
+            geopoints.push(record);
+        }
+
         let mut rr: Restaurant = Restaurant::default();
-        let c = get_random_city(&mut rr);
+        let c = get_random_city(&mut rr, geopoints);
+
         //println!("{:#?}", search_nearby(c));
     }
 
