@@ -370,7 +370,9 @@ mod tests {
 
     #[test]
     fn test_rating_stars() {
-        println!("{}", rating_stars(3.7));
+        assert_eq!( rating_stars(4.0), "★★★★" );
+        assert_eq!( rating_stars(4.2), "★★★★☆" );
+        assert_eq!( rating_stars(3.7), "★★★☆" );
     }
 
 }
