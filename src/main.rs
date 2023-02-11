@@ -42,14 +42,16 @@ struct Geopoint {
 fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
-    for gp in g {
-        if ( gp.population != None && gp.population.unwrap() > 25000 ) {
-            weighted_points.push(gp.clone());
-        }
+    let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
 
-        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
-        if weighted_countries.contains(&gp.clone().iso2.as_str())   {
-            weighted_points.push(gp);
+    let mg = g.iter().filter( |&g|
+        g.population.unwrap_or(0) > 25000_i64
+    ).cloned().collect::<Vec<Geopoint>>();
+
+    for gp in mg {
+        if weighted_countries.contains(&gp.clone().iso2.as_str())
+        {
+            weighted_points.push(gp.clone());
         }
     }
 
@@ -71,13 +73,16 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string()))
+        if i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("bar".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("cafe".to_string()))
         {
-            filtered_places.push(i.clone());
+            continue;
         }
+        filtered_places.push(i.clone());
     };
 
     let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
@@ -332,22 +337,43 @@ mod tests {
     #[test]
     #[ignore = "not yet implemented"]
     fn test_get_random_city() {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result.unwrap();
+            geopoints.push(record);
+        }
+
         let mut rr: Restaurant = Restaurant::default();
-        let c = get_random_city(&mut rr);
-        debug!("{:#?}", c);
+        let c = get_random_city(&mut rr, geopoints);
+        debug!("{:#?}", rr);
         //assert!(!c.is_err());
     }
 
     #[test]
     fn test_search_nearby() {
+
+        let pointscsv = include_str!("geopoints.csv").as_bytes();
+        let mut geopoints: Vec<Geopoint> = Vec::new();
+        let mut rdr = csv::Reader::from_reader(pointscsv);
+        for result in rdr.deserialize() {
+            let record: Geopoint = result.unwrap();
+            geopoints.push(record);
+        }
+
         let mut rr: Restaurant = Restaurant::default();
-        let c = get_random_city(&mut rr);
+        let c = get_random_city(&mut rr, geopoints);
+
         //println!("{:#?}", search_nearby(c));
     }
 
     #[test]
     fn test_rating_stars() {
-        println!("{}", rating_stars(3.7));
+        assert_eq!( rating_stars(4.0), "★★★★" );
+        assert_eq!( rating_stars(4.2), "★★★★☆" );
+        assert_eq!( rating_stars(3.7), "★★★☆" );
     }
 
 }
