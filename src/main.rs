@@ -18,6 +18,8 @@ use reqwest::header::CONTENT_TYPE;
 
 use serde::Deserialize;
 
+use thiserror::Error;
+
 #[derive(Debug, Default)]
 struct Place {
     name: String,
@@ -39,7 +41,19 @@ struct Geopoint {
     population: Option<i64>,
 }
 
-fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("No City Picked")]
+    NoCityPicked,
+    #[error("No image from google")]
+    NoImageFromGoogle,
+    #[error("foofoo")]
+    FooError(#[from] std::io::Error ),
+    #[error("Request error")]
+    ReqwestError(#[from] reqwest::Error)
+}
+
+fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), AppError> {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
     let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
@@ -57,12 +71,14 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
 
     match weighted_points.choose(&mut rand::thread_rng()) {
         Some(c) => { r.lat = c.lat; r.lng = c.lng; },
-        None => panic!("No city picked up"),
+        None => return Err(AppError::NoCityPicked)
     }
+
+    Ok(())
 
 }
 
-fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn search_nearby(r: &mut Place) -> Result<(), AppError> {
     // Search restaurant nearby the city and pick one
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
@@ -74,15 +90,16 @@ fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("restaurant".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string()))
+        if i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("restaurant".to_string())) ||
+            i["types"].as_array().unwrap().contains(&Value::String("bar".to_string()))
         {
-            filtered_places.push(i.clone());
+            continue;
         }
+        filtered_places.push(i.clone());
     };
 
     let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
@@ -97,7 +114,7 @@ fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn get_place_details(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn get_place_details(r: &mut Place) -> Result<(), AppError> {
     // Get restaurnat's detailed photos and formatted_address
 
     let api_key = env::var("GOOGLE_API_KEY")
@@ -117,7 +134,7 @@ fn get_place_details(r: &mut Place) -> Result<(), Box<dyn Error>> {
     if resp["result"]["photos"].as_array().unwrap().len() == 0 {
         info!("No image from google");
         // return error and take care that error at main
-        return Err("No image found".into());
+        return Err(AppError::NoImageFromGoogle);
     } else if resp["result"]["photos"].as_array().unwrap().len() < 4 {
         n = resp["result"]["photos"].as_array().unwrap().len();
     } else {
@@ -136,13 +153,13 @@ fn get_place_details(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
 }
 
-fn verify_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn verify_nearby(r: &mut Place) -> Result<(), AppError> {
     // Check distance not too far?
     // Nothing to verify now
     Ok(())
 }
 
-fn search_street_image(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn search_street_image(r: &mut Place) -> Result<(), AppError> {
     // First picture is from street image
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
@@ -162,7 +179,7 @@ fn search_street_image(r: &mut Place) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn get_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
+async fn get_images(r: &mut Place) -> Result<(), AppError> {
     let temp_dir = format!("{}/{}",
                            env::temp_dir().to_str().unwrap(),
                            Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
@@ -184,7 +201,7 @@ async fn get_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
 }
 
-async fn upload_mstd_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
+async fn upload_mstd_images(r: &mut Place) -> Result<(), AppError> {
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
     let mstdn_uri: String = env::var("MSTDN_URI")
@@ -217,7 +234,7 @@ async fn upload_mstd_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn post_message(r: &Place) -> Result<(), Box<dyn Error>> {
+async fn post_message(r: &Place) -> Result<(), AppError> {
     let mstdn_uri: String = env::var("MSTDN_URI")
         .expect("You must set the MSTDN environment var!");
 
@@ -227,7 +244,7 @@ async fn post_message(r: &Place) -> Result<(), Box<dyn Error>> {
     let msg: String = format!("{}\n{}\n{}\nhttps://www.google.com/maps/search/?api=1&query={},{}&query_place_id={}",
         r.name,
         r.address,
-        rating_stars(r.rating),
+        rating_stars(r.rating).unwrap_or("".to_string()),
         r.lat,
         r.lng,
         r.place_id,
@@ -258,19 +275,19 @@ async fn post_message(r: &Place) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn clean_images(r: &Place) -> std::io::Result<()> {
+fn clean_images(r: &Place) -> Result<(), AppError> {
     std::fs::remove_dir_all(r.pics_tmp_dir.as_str())?;
     Ok(())
 }
 
-fn rating_stars(rating: f64) -> String {
+fn rating_stars(rating: f64) -> Result<String, AppError> {
     let major: usize = (rating - (rating % 1.0)) as usize;
     let minor: f64 = (rating % 1.0) ;
     let mut star: String = "★".repeat(major);
     if minor > 0.0 {
         star = format!("{star}☆");
     }
-    star
+    Ok(star)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -336,54 +353,22 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
-<<<<<<< HEAD
-    fn test_get_random_city() -> Result<(), Box<dyn Error>> {
-=======
+    //#[ignore = "not yet implemented"]
     fn test_get_random_city() {
->>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
-
         let pointscsv = include_str!("geopoints.csv").as_bytes();
         let mut geopoints: Vec<Geopoint> = Vec::new();
         let mut rdr = csv::Reader::from_reader(pointscsv);
         for result in rdr.deserialize() {
-<<<<<<< HEAD
-            let record: Geopoint = result?;
-=======
             let record: Geopoint = result.unwrap();
->>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
             geopoints.push(record);
         }
-
         let mut rr: Place = Place::default();
         let c = get_random_city(&mut rr, geopoints);
-<<<<<<< HEAD
-        debug!("{:#?}", c);
-=======
-        debug!("{:#?}", rr);
->>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
-        //assert!(!c.is_err());
-
-        Ok(())
+        assert_eq!(!c.is_err(), true);
     }
 
     #[test]
-<<<<<<< HEAD
-    fn test_search_nearby() -> Result<(), Box<dyn Error>> {
-        let mut rr: Place = Place::default();
-
-        let pointscsv = include_str!("geopoints.csv").as_bytes();
-        let mut geopoints: Vec<Geopoint> = Vec::new();
-        let mut rdr = csv::Reader::from_reader(pointscsv);
-        for result in rdr.deserialize() {
-            let record: Geopoint = result?;
-            geopoints.push(record);
-        }
-
-        let c = get_random_city(&mut rr, geopoints);
-=======
     fn test_search_nearby() {
-
         let pointscsv = include_str!("geopoints.csv").as_bytes();
         let mut geopoints: Vec<Geopoint> = Vec::new();
         let mut rdr = csv::Reader::from_reader(pointscsv);
@@ -391,20 +376,19 @@ mod tests {
             let record: Geopoint = result.unwrap();
             geopoints.push(record);
         }
-
         let mut rr: Place = Place::default();
         let c = get_random_city(&mut rr, geopoints);
-
->>>>>>> a4999a9e7e44e5bd56177a6f182037127dee5d8e
-        //println!("{:#?}", search_nearby(c));
-        Ok(())
+        assert!(c.is_ok());
+        assert!(search_nearby(&mut rr).is_ok());
+        println!("{rr:#?}");
     }
 
     #[test]
     fn test_rating_stars() {
-        println!("{}", rating_stars(0.1));
+        assert_eq!( rating_stars(4.0).unwrap(), "★★★★" );
+        assert_eq!( rating_stars(4.2).unwrap(), "★★★★☆" );
+        assert_eq!( rating_stars(3.7).unwrap(), "★★★☆" );
     }
-
 }
 
 
