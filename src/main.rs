@@ -43,6 +43,13 @@ fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
     for gp in g {
+        // All cities where population is more than 25,000
+        if gp.population != None && gp.population.unwrap() > 25000
+        {
+            weighted_points.push(gp.clone());
+        }
+
+        // cities where popuation is more than 25,000 AND in weigted countries
         let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
         if gp.population != None &&
             gp.population.unwrap() > 25000 &&
