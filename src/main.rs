@@ -76,7 +76,9 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
         if ! i["types"].as_array().unwrap().contains(&Value::String("hotel".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
             ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string()))
+            ! i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
+            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string())) ||
+            ! i["types"].as_array().unwrap().contains(&Value::String("cafe".to_string()))
         {
             filtered_places.push(i.clone());
         }
