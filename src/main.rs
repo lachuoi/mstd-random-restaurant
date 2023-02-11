@@ -43,14 +43,16 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
     
     let mut weighted_points: Vec<Geopoint> = Vec::new();
     for gp in g {
-        if ( gp.population != None && gp.population.unwrap() > 25000 ) {
+
+        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+
+        if gp.population != None &&
+            gp.population.unwrap() > 25000 &&
+            weighted_countries.contains(&gp.clone().iso2.as_str())
+        {
             weighted_points.push(gp.clone());
         }
 
-        let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
-        if weighted_countries.contains(&gp.clone().iso2.as_str())   {
-            weighted_points.push(gp);
-        }
     }
 
     match weighted_points.choose(&mut rand::thread_rng()) {
