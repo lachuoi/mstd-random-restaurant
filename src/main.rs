@@ -62,7 +62,7 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
     let weighted_countries =
-        vec!["DE","GB","FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+        vec!["DE","GB","FR","ES","IT","TW","TH","VN","MX","PT","KR"];
 
     let mg = g.iter().filter( |&g|
         g.population.unwrap_or(0) > 25000_i64
@@ -161,7 +161,7 @@ fn get_place_details(r: &mut Place) -> Result<(), MyError> {
     for i in 0..n {
         r.pics.push(
             format!("https://maps.googleapis.com/maps/api/place/photo?\
-            maxwidth=640&photoreference={}&key=",
+            maxwidth=800&photoreference={}&key=",
                     resp["result"]["photos"][i]["photo_reference"]
                         .clone().as_str().unwrap().to_string(),
             )
@@ -181,7 +181,7 @@ fn search_street_image(r: &mut Place) -> Result<(), MyError> {
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
     let url = format!("https://maps.googleapis.com/maps/api/streetview/\
-    metadata?size=640x640&location={},{}&key={}",
+    metadata?size=640qx640&location={},{}&key={}",
         r.lat, r.lng, api_key,
     );
     let resp: Value = reqwest::blocking::get(url)?.json().unwrap();
