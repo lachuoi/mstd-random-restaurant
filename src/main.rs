@@ -18,6 +18,9 @@ use reqwest::header::CONTENT_TYPE;
 
 use serde::Deserialize;
 
+use thiserror::Error;
+use anyhow::{Context, Result};
+
 #[derive(Debug, Default)]
 struct Place {
     name: String,
@@ -39,10 +42,27 @@ struct Geopoint {
     population: Option<i64>,
 }
 
-fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
+#[derive(Error, Debug)]
+pub enum MyError {
+    #[error("No City Picked")]
+    NoCityPicked,
+    #[error("No image from google")]
+    NoImageFromGoogle,
+    #[error("IoError")]
+    IoError(#[from] std::io::Error ),
+    #[error("reqwest error")]
+    ReqwestError(#[from] reqwest::Error),
+    //#[error("reqwest blocking error")]
+    //ReqwestBlockingError(#[from] reqwest::blocking),
+    #[error("no error")]
+    NoError
+}
+
+fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
-    let weighted_countries = vec!["DE","GB","FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+    let weighted_countries =
+        vec!["DE","GB","FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
 
     let mg = g.iter().filter( |&g|
         g.population.unwrap_or(0) > 25000_i64
@@ -57,35 +77,49 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) {
 
     match weighted_points.choose(&mut rand::thread_rng()) {
         Some(c) => { r.lat = c.lat; r.lng = c.lng; },
-        None => panic!("No city picked up"),
+        None => return Err(MyError::NoCityPicked)
     }
+
+    Ok(())
 
 }
 
-fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn search_nearby(r: &mut Place) -> Result<()> {
     // Search restaurant nearby the city and pick one
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
     let url: String = format!(
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius=50000&type=cafe&keyword=coffee&key={}",
+        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&\
+        radius=50000&type=cafe&keyword=coffee&key={}",
         r.lat, r.lng, api_key
     );
-    let resp: Value = reqwest::blocking::get(url)?.json().unwrap();
+    let resp: Value = reqwest::blocking::get(url).with_context(
+        || format!("google search nearby request error")
+    )?.json().unwrap();
 
     let mut filtered_places: Vec<Value> = Vec::new();
     for i in resp["results"].as_array().unwrap() {
-        if ! i["types"].as_array().unwrap().contains(&Value::String("Hotel".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("lodge".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("gas_station".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("convenience_store".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("restaurant".to_string())) ||
-            ! i["types"].as_array().unwrap().contains(&Value::String("bar".to_string()))
+        if i["types"].as_array().unwrap().contains(
+            &Value::String("hotel".to_string())) ||
+            i["types"].as_array().unwrap().contains(
+                &Value::String("lodge".to_string())) ||
+            i["types"].as_array().unwrap().contains(
+                &Value::String("gas_station".to_string())) ||
+            i["types"].as_array().unwrap().contains(
+                &Value::String("convenience_store".to_string())) ||
+            i["types"].as_array().unwrap().contains(
+                &Value::String("restaurant".to_string())) ||
+            i["types"].as_array().unwrap().contains(
+                &Value::String("bar".to_string()))
         {
-            filtered_places.push(i.clone());
+            continue;
         }
+        filtered_places.push(i.clone());
     };
 
-    let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
+    let p = filtered_places
+        .choose(&mut rand::thread_rng())
+        .unwrap();
     r.place_id = p.clone()["place_id"].as_str().unwrap().to_string();
     r.name = p.clone()["name"].as_str().unwrap().to_string();
     if p.get("rating").is_some() {
@@ -93,75 +127,80 @@ fn search_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
     } else {
         r.rating = 0.0;
     };
-
     Ok(())
 }
 
-fn get_place_details(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn get_place_details(r: &mut Place) -> Result<(), MyError> {
     // Get restaurnat's detailed photos and formatted_address
 
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
-    let url: String = format!("https://maps.googleapis.com/maps/api/place/details/json?place_id={}&fields=photos,formatted_address&key={}",
+    let url: String = format!("https://maps.googleapis.com/maps/api/place/\
+    details/json?place_id={}&fields=photos,formatted_address&key={}",
         r.place_id, api_key
     );
 
     let resp: Value = reqwest::blocking::get(url)?.json().unwrap();
 
-    r.address = resp["result"]["formatted_address"].as_str().unwrap().to_string();
+    r.address = resp["result"]["formatted_address"]
+        .as_str().unwrap().to_string();
     //println!("{:#?}", resp);
 
     //println!("{:#?}", resp["result"]["photos"]);
 
     let mut n: usize = 0;
-    if resp["result"]["photos"].as_array().unwrap().len() < 4 {
+    if resp["result"]["photos"].as_array().unwrap().len() == 0 {
+        info!("No image from google");
+        // return error and take care that error at main
+        return Err(MyError::NoImageFromGoogle);
+    } else if resp["result"]["photos"].as_array().unwrap().len() < 4 {
         n = resp["result"]["photos"].as_array().unwrap().len();
     } else {
         n = 4
     }
     for i in 0..n {
         r.pics.push(
-            format!("https://maps.googleapis.com/maps/api/place/photo?maxwidth=640&photoreference={}&key=",
+            format!("https://maps.googleapis.com/maps/api/place/photo?\
+            maxwidth=640&photoreference={}&key=",
                     resp["result"]["photos"][i]["photo_reference"]
                         .clone().as_str().unwrap().to_string(),
             )
         );
     }
-
     Ok(())
-
 }
 
-fn verify_nearby(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn verify_nearby(r: &mut Place) -> Result<(), MyError> {
     // Check distance not too far?
     // Nothing to verify now
     Ok(())
 }
 
-fn search_street_image(r: &mut Place) -> Result<(), Box<dyn Error>> {
+fn search_street_image(r: &mut Place) -> Result<(), MyError> {
     // First picture is from street image
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
-    let url = format!("https://maps.googleapis.com/maps/api/streetview/metadata?size=640x640&location={},{}&key={}",
-        r.lat,
-        r.lng,
-        api_key,
+    let url = format!("https://maps.googleapis.com/maps/api/streetview/\
+    metadata?size=640x640&location={},{}&key={}",
+        r.lat, r.lng, api_key,
     );
     let resp: Value = reqwest::blocking::get(url)?.json().unwrap();
     if resp["status"] != "ZERO_RESULT" {
-        let pic_url = format!("https://maps.googleapis.com/maps/api/streetview?size=640x640&return_error_codes=true&location={},{}&key=",
-                              r.lat,
-                              r.lng,
+        let pic_url = format!(
+            "https://maps.googleapis.com/maps/api/streetview?size=640x640&\
+            return_error_codes=true&location={},{}&key=",
+            r.lat, r.lng,
         );
         r.pics.push(pic_url);
     }
     Ok(())
 }
 
-async fn get_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
+async fn get_images(r: &mut Place) -> Result<(), MyError> {
     let temp_dir = format!("{}/{}",
                            env::temp_dir().to_str().unwrap(),
-                           Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
+                           Alphanumeric.sample_string(
+                               &mut rand::thread_rng(), 8));
     std::fs::create_dir(temp_dir.clone())?;
     r.pics_tmp_dir = temp_dir.clone();
 
@@ -171,8 +210,10 @@ async fn get_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
             .expect("You must set the GOOGLE_API_KEY environment var!");
         let url: String = format!("{url}{api_key}");
         let response = reqwest::get(url).await?;
-        let mut file = std::fs::File::create(format!("{temp_dir}/img{i}.jpg"))?;
-        let mut content =  Cursor::new(response.bytes().await?);
+        let mut file = std::fs::File::create(
+            format!("{temp_dir}/img{i}.jpg"))?;
+        let mut content =
+            Cursor::new(response.bytes().await?);
         std::io::copy(&mut content, &mut file)?;
     }
     //debug!("{:#?}", r.pics);
@@ -180,7 +221,7 @@ async fn get_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
 }
 
-async fn upload_mstd_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
+async fn upload_mstd_images(r: &mut Place) -> Result<(), MyError> {
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
     let mstdn_uri: String = env::var("MSTDN_URI")
@@ -188,12 +229,14 @@ async fn upload_mstd_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
 
     for (i, _) in r.pics.iter().enumerate() {
         let url = format!("https://{mstdn_uri}/api/v2/media");
-        let file = std::fs::read(format!("{}/img{}.jpg", r.pics_tmp_dir, i)).unwrap();
+        let file = std::fs::read(
+            format!("{}/img{}.jpg", r.pics_tmp_dir, i)).unwrap();
         let file_part = reqwest::multipart::Part::bytes(file)
             .file_name(format!("img-{i}.jpg"))
             .mime_str("image/jpg")
             .unwrap();
-        let form = reqwest::multipart::Form::new().part("file", file_part);
+        let form = reqwest::multipart::Form::new()
+            .part("file", file_part);
         let client = reqwest::Client::new();
         //match client
         let c = client
@@ -208,22 +251,24 @@ async fn upload_mstd_images(r: &mut Place) -> Result<(), Box<dyn Error>> {
             panic!("Uploading image failed: {}", c.status());
         }
         let it = c.json::<serde_json::Value>().await?;
-        r.mstd_media_ids.push(it["id"].as_str().unwrap().parse::<i64>().unwrap());
+        r.mstd_media_ids.push(it["id"].as_str().unwrap()
+            .parse::<i64>().unwrap());
     }
     Ok(())
 }
 
-async fn post_message(r: &Place) -> Result<(), Box<dyn Error>> {
+async fn post_message(r: &Place) -> Result<(), MyError> {
     let mstdn_uri: String = env::var("MSTDN_URI")
         .expect("You must set the MSTDN environment var!");
 
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
 
-    let msg: String = format!("{}\n{}\n{}\nhttps://www.google.com/maps/search/?api=1&query={},{}&query_place_id={}",
+    let msg: String = format!("{}\n{}\n{}\nhttps://www.google.com/maps/search/\
+    ?api=1&query={},{}&query_place_id={}\n#coffee #cafe",
         r.name,
         r.address,
-        rating_stars(r.rating),
+        rating_stars(r.rating).unwrap_or("".to_string()),
         r.lat,
         r.lng,
         r.place_id,
@@ -254,22 +299,19 @@ async fn post_message(r: &Place) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn clean_images(r: &Place) -> std::io::Result<()> {
+fn clean_images(r: &Place) -> Result<(), MyError> {
     std::fs::remove_dir_all(r.pics_tmp_dir.as_str())?;
     Ok(())
 }
 
-fn rating_stars(rating: f64) -> String {
-
+fn rating_stars(rating: f64) -> Result<String, MyError> {
     let major: usize = (rating - (rating % 1.0)) as usize;
-    let minor: usize = ((rating % 1.0) * 10.0) as usize;
-
+    let minor: f64 = rating % 1.0;
     let mut star: String = "★".repeat(major);
-    if minor >= 5 {
-      star = format!("{star}☆");
+    if minor > 0.0 {
+        star = format!("{star}☆");
     }
-    star
-
+    Ok(star)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -335,9 +377,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+    //#[ignore = "not yet implemented"]
     fn test_get_random_city() {
-
         let pointscsv = include_str!("geopoints.csv").as_bytes();
         let mut geopoints: Vec<Geopoint> = Vec::new();
         let mut rdr = csv::Reader::from_reader(pointscsv);
@@ -345,16 +386,13 @@ mod tests {
             let record: Geopoint = result.unwrap();
             geopoints.push(record);
         }
-
         let mut rr: Place = Place::default();
         let c = get_random_city(&mut rr, geopoints);
-        debug!("{:#?}", rr);
-        //assert!(!c.is_err());
+        assert_eq!(!c.is_err(), true);
     }
 
     #[test]
     fn test_search_nearby() {
-
         let pointscsv = include_str!("geopoints.csv").as_bytes();
         let mut geopoints: Vec<Geopoint> = Vec::new();
         let mut rdr = csv::Reader::from_reader(pointscsv);
@@ -362,18 +400,19 @@ mod tests {
             let record: Geopoint = result.unwrap();
             geopoints.push(record);
         }
-
         let mut rr: Place = Place::default();
         let c = get_random_city(&mut rr, geopoints);
-
-        //println!("{:#?}", search_nearby(c));
+        assert!(c.is_ok());
+        assert!(search_nearby(&mut rr).is_ok());
+        println!("{rr:#?}");
     }
 
     #[test]
     fn test_rating_stars() {
-        println!("{}", rating_stars(3.7));
+        assert_eq!( rating_stars(4.0).unwrap(), "★★★★" );
+        assert_eq!( rating_stars(4.2).unwrap(), "★★★★☆" );
+        assert_eq!( rating_stars(3.7).unwrap(), "★★★☆" );
     }
-
 }
 
 
