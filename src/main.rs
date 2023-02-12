@@ -42,7 +42,7 @@ struct Geopoint {
 fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
     let mut weighted_points: Vec<Geopoint> = Vec::new();
-    let weighted_countries = vec!["FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
+    let weighted_countries = vec!["DE","FR","US","ES","IT","JP","TW","TH","VN","MX","PT","KR"];
 
     let mg = g.iter().filter( |&g|
         g.population.unwrap_or(0) > 25000_i64
