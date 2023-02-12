@@ -769,6 +769,7 @@ dependencies = [
 name = "mstd-random-cafe"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "crossbeam",
  "csv",
  "env_logger",
@@ -779,6 +780,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "thiserror",
  "tokio",
 ]
 
