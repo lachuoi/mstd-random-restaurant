@@ -69,6 +69,7 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
     ).cloned().collect::<Vec<Geopoint>>();
 
     for gp in mg {
+        weighted_points.push(gp.clone());
         if weighted_countries.contains(&gp.clone().iso2.as_str())
         {
             weighted_points.push(gp.clone());
