@@ -1,8 +1,8 @@
 version: "3"
 services:
   mstd-random-cafe:
-    container_name: "mstd-random-cafe"
-    image: "codeberg.org/seungjin/mstd-random-cafe"
+    container_name: mstd-random-cafe
+    image: codeberg.org/seungjin/mstd-random-cafe:latest
     env_file: .env
 
 
