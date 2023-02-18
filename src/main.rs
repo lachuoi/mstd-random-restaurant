@@ -115,7 +115,12 @@ fn search_nearby(r: &mut Place) -> Result<()> {
         {
             continue;
         }
-        filtered_places.push(i.clone());
+        if i["rating"].as_f64().unwrap() >= 3_f64 &&
+            i["user_ratings_total"].as_f64().unwrap() > 9_f64
+        {
+                filtered_places.push(i.clone());
+
+        }
     };
 
     let p = filtered_places
