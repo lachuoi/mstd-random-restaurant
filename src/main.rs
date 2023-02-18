@@ -90,7 +90,12 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
         {
             continue;
         }
-        filtered_places.push(i.clone());
+        if i["rating"].as_f64().unwrap_or(0_f64) >= 3_f64 &&
+            i["user_ratings_total"].as_f64().unwrap_or(0_f64) > 9_f64
+        {
+            filtered_places.push(i.clone());
+
+        }
     };
 
     let p = filtered_places.choose(&mut rand::thread_rng()).unwrap();
