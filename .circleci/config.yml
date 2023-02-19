@@ -7,10 +7,12 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      #- run: |
-      #    docker login -u seungjin --password-stdin codeberg.org
       - run: |
-          docker build --platform linux/amd64 --push -t codeberg.org/sa/mstd-random-restaurant:latest .
+         echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+      - run: |
+          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-restaurant:latest .
+      - run: |
+          docker push codeberg.org/sa/mstd-random-restaurant:latest
 
 
 
