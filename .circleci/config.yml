@@ -1,6 +1,12 @@
 version: 2.1
+
+parameters:
+  image-tag:
+    type: string
+    default: "ci-<<pipeline.number>>"
+
 jobs:
-  build:
+  build-amd64:
     machine:
       image: ubuntu-2204:current
       #docker_layer_caching: true
@@ -10,14 +16,29 @@ jobs:
       - run: |
          echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
       - run: |
-          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>> .
+          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> .
       - run: |
-          docker push codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>>
+          docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
       - run: |
-          docker tag codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>> codeberg.org/sa/mstd-random-cafe:latest
+          docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
       - run: |
           docker push codeberg.org/sa/mstd-random-cafe:latest
-          
+  build-arm64:
+    machine:
+      image: ubuntu-2204:current
+    resource_calss: arm.large
+    steps:
+      - checkout
+      - run: |
+         echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+      - run: |
+          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> .
+      - run: |
+          docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
+      - run: |
+          docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
+      - run: |
+          docker push codeberg.org/sa/mstd-random-cafe:latest
       
 
 
