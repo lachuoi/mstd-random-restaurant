@@ -40,7 +40,11 @@ jobs:
       - run: |
           docker push codeberg.org/sa/mstd-random-cafe:latest
       
-
+workflows:
+  my-workflow:
+    jobs: 
+      - build_amd64:
+      - build_arm64:
 
 
 
