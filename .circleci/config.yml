@@ -18,7 +18,7 @@ jobs:
       - run: |
           sudo apt-get install -y docker-buildx-plugin
       - run: |
-         echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+          echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
       #- run: |
       #    docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> .
       #- run: |
@@ -28,7 +28,7 @@ jobs:
       #- run: |
       #    docker push codeberg.org/sa/mstd-random-cafe:latest
       - run: |
-           docker buildx build 
+          docker buildx build 
           --platform linux/amd64,linux/aarch64 
           -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> 
           --push .
