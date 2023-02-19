@@ -13,7 +13,8 @@ jobs:
     resource_class: large
     filters:
       branches:
-        only: main
+        only:
+          - main
     steps:
       - checkout
       - run: |
