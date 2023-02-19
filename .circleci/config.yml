@@ -13,6 +13,12 @@ jobs:
           docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>> .
       - run: |
           docker push codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>>
+      - run: |
+          docker tag codeberg.org/sa/mstd-random-cafe:ci-<<pipeline.number>> codeberg.org/sa/mstd-random-cafe:latest
+      - run: |
+          docker push codeberg.org/sa/mstd-random-cafe:latest
+          
+      
 
 
 
