@@ -8,9 +8,8 @@ jobs:
     steps:
       - checkout
       - run: apt list --installed
-      - run: sudo apt-get install -y docker-buildx-plugin
       - run: |
-          docker buildx build --platform linux/amd64,linux/aarch64 -t codeberg.org/sa/mstd-random-restaurant:lates$
+          docker build --platform -t codeberg.org/sa/mstd-random-restaurant:lates
 
 
 
