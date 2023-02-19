@@ -8,9 +8,9 @@ jobs:
     steps:
       - checkout
       #- run: |
-      #    docker login -u seungjin -p codeberg.org
+      #    docker login -u seungjin --password-stdin codeberg.org
       - run: |
-          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-restaurant:latest .
+          docker build --platform linux/amd64 --push -t codeberg.org/sa/mstd-random-restaurant:latest .
 
 
 
