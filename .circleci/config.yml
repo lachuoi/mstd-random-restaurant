@@ -7,9 +7,8 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      - run: apt list --installed
       - run: |
-          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-restaurant:latest
+          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-restaurant:latest .
 
 
 
