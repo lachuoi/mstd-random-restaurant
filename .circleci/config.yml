@@ -30,5 +30,15 @@ jobs:
           docker buildx imagetools create \
           -t codeberg.org/sa/mstd-random-restaurant:latest \
           codeberg.org/sa/mstd-random-restaurant:<<pipeline.parameters.image-tag>> 
-          
+
+workflows:
+  version: 2
+  do:
+    jobs:
+      - build:
+	  filters:
+	    branches:
+	      only:
+	        - main
+				  
     
