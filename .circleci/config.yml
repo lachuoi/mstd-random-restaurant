@@ -6,7 +6,7 @@ parameters:
     default: "ci-<<pipeline.number>>"
 
 jobs:
-  build_amd64:
+  build:
     machine:
       image: ubuntu-2204:current
       #docker_layer_caching: true
@@ -14,37 +14,25 @@ jobs:
     steps:
       - checkout
       - run: |
-         echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+          sudo apt update
       - run: |
-          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> .
-      - run: |
-          docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
-      - run: |
-          docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
-      - run: |
-          docker push codeberg.org/sa/mstd-random-cafe:latest
-  build_arm64:
-    machine:
-      image: ubuntu-2204:current
-    resource_calss: arm.large
-    steps:
-      - checkout
+          sudo apt-get install -y docker-buildx-plugin
       - run: |
          echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+      #- run: |
+      #    docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> .
+      #- run: |
+      #    docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
+      #- run: |
+      #    docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
+      #- run: |
+      #    docker push codeberg.org/sa/mstd-random-cafe:latest
       - run: |
-          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> .
-      - run: |
-          docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
-      - run: |
-          docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
-      - run: |
-          docker push codeberg.org/sa/mstd-random-cafe:latest
-      
-workflows:
-  my-workflow:
-    jobs: 
-      - build_amd64:
-      - build_arm64:
+           docker buildx build 
+          --platform linux/amd64,linux/aarch64 
+          -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> 
+          --push .
+
 
 
 
