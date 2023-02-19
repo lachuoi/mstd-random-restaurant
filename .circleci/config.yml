@@ -1,0 +1,73 @@
+version: 2.1
+
+parameters:
+  image-tag:
+    type: string
+    default: "ci-<<pipeline.number>>"
+
+jobs:
+  build:
+    machine:
+      image: ubuntu-2204:current
+      #docker_layer_caching: true
+    resource_class: large
+    steps:
+      - checkout
+      - run: |
+          sudo apt update
+      - run: |
+          sudo apt-get install -y docker-buildx-plugin
+      - run: |
+          echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
+      - run: |
+          docker buildx create --name multiarch --driver docker-container --use
+      - run: |
+          docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          -t codeberg.org/sa/mstd-random-restaurant:<<pipeline.parameters.image-tag>> \
+          -o type=registry .
+      - run: |
+          docker buildx imagetools create \
+          -t codeberg.org/sa/mstd-random-restaurant:latest \
+          codeberg.org/sa/mstd-random-restaurant:<<pipeline.parameters.image-tag>> 
+          
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--**-Mg: config.yml                       (fundamental-c)--L7--C33-------------------------------------------------
