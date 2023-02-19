@@ -9,7 +9,7 @@ jobs:
       - checkout
       - run: apt list --installed
       - run: |
-          docker build --platform -t codeberg.org/sa/mstd-random-restaurant:lates
+          docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-restaurant:lates$
 
 
 
