@@ -11,10 +11,6 @@ jobs:
       image: ubuntu-2204:current
       #docker_layer_caching: true
     resource_class: large
-    filters:
-      branches:
-        only:
-          - main
     steps:
       - checkout
       - run: |
@@ -34,11 +30,16 @@ jobs:
           docker buildx imagetools create \
           -t codeberg.org/sa/mstd-random-cafe:latest \
           codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> 
-          
-        
-          
 
-
+workflows:
+  version: 2
+  do:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - main
 
 
 
