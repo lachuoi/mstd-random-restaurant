@@ -28,9 +28,9 @@ jobs:
       #- run: |
       #    docker push codeberg.org/sa/mstd-random-cafe:latest
       - run: |
-          docker buildx build 
-          --platform linux/amd64,linux/aarch64 
-          -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> 
+          docker buildx build \
+          --platform linux/amd64,linux/aarch64 \
+          -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> \
           --push .
 
 
