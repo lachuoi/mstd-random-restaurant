@@ -10,7 +10,7 @@ jobs:
     machine:
       image: ubuntu-2204:current
       #docker_layer_caching: true
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run: |
@@ -19,21 +19,19 @@ jobs:
           sudo apt-get install -y docker-buildx-plugin
       - run: |
           echo "$CODEBERG_ACCESS_KEY" | docker login -u seungjin --password-stdin codeberg.org
-      #- run: |
-      #    docker build --platform linux/amd64 -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> .
-      #- run: |
-      #    docker push codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>>
-      #- run: |
-      #    docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
-      #- run: |
-      #    docker push codeberg.org/sa/mstd-random-cafe:latest
       - run: |
           docker buildx create --name multiarch --driver docker-container --use
       - run: |
           docker buildx build \
-          --platform linux/amd64,linux/aarch64 \
+          --platform linux/amd64,linux/arm64 \
           -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> \
-          --push .
+         .
+      - run: |
+          docker push codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>>
+      - run: |
+          docker image tag codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
+      - run: |
+          docker push codeberg.org/sa/mstd-random-cafe:latest
 
 
 
