@@ -28,8 +28,9 @@ jobs:
           -o type=registry .
       - run: |
           docker buildx imagetools create \
-          -t codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> \
-          codeberg.org/sa/mstd-random-cafe:latest 
+          -t codeberg.org/sa/mstd-random-cafe:latest \
+          codeberg.org/sa/mstd-random-cafe:<<pipeline.parameters.image-tag>> 
+          
         
           
 
