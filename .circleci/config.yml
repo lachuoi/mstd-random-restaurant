@@ -7,11 +7,8 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      - apt:
-          pkg:
-            - docker-buildx-plugin
-          state: latest
-          update_cache: true
+      - run: apt list --installed
+      - run: apt-get install --allow docker-buildx-plugin
       - run: |
           docker buildx build --platform linux/amd64,linux/aarch64 -t codeberg.org/sa/mstd-random-restaurant:lates$
 
