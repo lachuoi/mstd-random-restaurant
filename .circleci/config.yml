@@ -6,7 +6,7 @@ parameters:
     default: "ci-<<pipeline.number>>"
 
 jobs:
-  build-amd64:
+  build_amd64:
     machine:
       image: ubuntu-2204:current
       #docker_layer_caching: true
@@ -23,7 +23,7 @@ jobs:
           docker tag codeberg.org/sa/mstd-random-cafe::<<pipeline.parameters.image-tag>> codeberg.org/sa/mstd-random-cafe:latest
       - run: |
           docker push codeberg.org/sa/mstd-random-cafe:latest
-  build-arm64:
+  build_arm64:
     machine:
       image: ubuntu-2204:current
     resource_calss: arm.large
