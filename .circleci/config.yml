@@ -1,0 +1,14 @@
+version: 2.1
+jobs:
+  build:
+    working_directory: /app
+    docker:
+      - image: rust:1.67
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run: |
+          docker buildx build --platform linux/amd64,linux/aarch64 -t codeberg.org/sa/mstd-random-restaurant:latest --push .
+      
+      
