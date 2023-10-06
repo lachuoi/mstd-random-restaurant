@@ -20,6 +20,9 @@ use serde::Deserialize;
 
 use thiserror::Error;
 use anyhow::{Context, Result};
+use serde::__private::from_utf8_lossy;
+
+use std::{thread, time};
 
 #[derive(Debug, Default)]
 struct Place {
@@ -86,6 +89,34 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
 }
 
 fn search_nearby(r: &mut Place) -> Result<()> {
+
+    let mut filtered_places = ask_to_google(r)?;
+    while filtered_places.len() == 0 {
+        //println!("????? {:?}", filtered_places);
+        let two_sec = time::Duration::from_secs(2);
+        thread::sleep(two_sec);
+        let mut rr: Place = Place::default();
+        let geopoints = get_geopoints()?;
+        get_random_city(&mut rr, geopoints)?;
+        filtered_places = ask_to_google(&mut rr)?;
+    }
+
+    let p = filtered_places
+        .choose(&mut rand::thread_rng())
+        .expect("getting filtered_places ramdomly got an error");
+
+    r.place_id = p.clone()["place_id"].as_str().unwrap().to_string();
+    r.name = p.clone()["name"].as_str().unwrap().to_string();
+    if p.get("rating").is_some() {
+        r.rating = p["rating"].as_f64().unwrap();
+    } else {
+        r.rating = 0.0;
+    };
+
+    Ok(())
+}
+
+fn ask_to_google(r: &mut Place) -> Result<Vec<Value>> {
     // Search restaurant nearby the city and pick one
     let api_key = env::var("GOOGLE_API_KEY")
         .expect("You must set the GOOGLE_API_KEY environment var!");
@@ -94,6 +125,7 @@ fn search_nearby(r: &mut Place) -> Result<()> {
         radius=50000&type=cafe&keyword=coffee&key={}",
         r.lat, r.lng, api_key
     );
+
     let resp: Value = reqwest::blocking::get(url).with_context(
         || format!("google search nearby request error")
     )?.json().unwrap();
@@ -123,17 +155,7 @@ fn search_nearby(r: &mut Place) -> Result<()> {
         }
     };
 
-    let p = filtered_places
-        .choose(&mut rand::thread_rng())
-        .unwrap();
-    r.place_id = p.clone()["place_id"].as_str().unwrap().to_string();
-    r.name = p.clone()["name"].as_str().unwrap().to_string();
-    if p.get("rating").is_some() {
-        r.rating = p["rating"].as_f64().unwrap();
-    } else {
-        r.rating = 0.0;
-    };
-    Ok(())
+    Ok(filtered_places)
 }
 
 fn get_place_details(r: &mut Place) -> Result<(), MyError> {
@@ -320,11 +342,7 @@ fn rating_stars(rating: f64) -> Result<String, MyError> {
     Ok(star)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let config_str = include_str!("log4rs.yaml");
-    let config = serde_yaml::from_str(config_str).unwrap();
-    log4rs::init_raw_config(config).unwrap();
-
+fn get_geopoints() -> Result<Vec<Geopoint>> {
     let pointscsv = include_str!("geopoints.csv").as_bytes();
     let mut geopoints: Vec<Geopoint> = Vec::new();
     let mut rdr = csv::Reader::from_reader(pointscsv);
@@ -332,10 +350,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         let record: Geopoint = result?;
         geopoints.push(record);
     }
+    Ok(geopoints)
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let config_str = include_str!("log4rs.yaml");
+    let config = serde_yaml::from_str(config_str).unwrap();
+    log4rs::init_raw_config(config).unwrap();
+
+    let geopoints = get_geopoints()?;
 
     let mut rr: Place = Place::default();
-    get_random_city(&mut rr, geopoints);
-    search_nearby(&mut rr);
+    get_random_city(&mut rr, geopoints).expect("get_random_city() call error");
+    search_nearby(&mut rr).expect("search_nearby() call error");
     info!("name: {}", rr.name);
     info!("pid: {}", rr.place_id);
     info!("rating: {}", rr.rating);
