@@ -11,10 +11,11 @@ use rand::seq::SliceRandom;
 use serde_json::json;
 use serde_json::Value;
 
-use reqwest::header::AUTHORIZATION;
-use reqwest::header::CONTENT_TYPE;
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 
 use serde::Deserialize;
+
+use log::{debug, error, info, warn};
 
 #[derive(Debug, Default)]
 struct Restaurant {
@@ -68,8 +69,8 @@ fn get_random_city(r: &mut Restaurant, g: Vec<Geopoint>) {
 
 fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     // Search restaurant nearby the city and pick one
-    let api_key =
-        env::var("GOOGLE_API_KEY").expect("You must set the GOOGLE_API_KEY environment var!");
+    let api_key = env::var("GOOGLE_API_KEY")
+        .expect("You must set the GOOGLE_API_KEY environment var!");
     let url: String = format!(
         "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius=50000&type=restaurant&key={}",
         r.lat, r.lng, api_key
@@ -131,8 +132,8 @@ fn search_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 fn get_place_details(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     // Get restaurnat's detailed photos and formatted_address
 
-    let api_key =
-        env::var("GOOGLE_API_KEY").expect("You must set the GOOGLE_API_KEY environment var!");
+    let api_key = env::var("GOOGLE_API_KEY")
+        .expect("You must set the GOOGLE_API_KEY environment var!");
     let url: String = format!("https://maps.googleapis.com/maps/api/place/details/json?place_id={}&fields=photos,formatted_address&key={}",
         r.place_id, api_key
     );
@@ -149,7 +150,7 @@ fn get_place_details(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
     let mut n: usize = 0;
     if resp["result"]["photos"].as_array().unwrap().len() == 0 {
-        info!("No picture from google");
+        println!("No picture from google");
         // return certain error and take care that error at main
     } else if resp["result"]["photos"].as_array().unwrap().len() < 4 {
         n = resp["result"]["photos"].as_array().unwrap().len();
@@ -178,8 +179,8 @@ fn verify_nearby(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 
 fn search_street_image(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     // First picture is from street image
-    let api_key =
-        env::var("GOOGLE_API_KEY").expect("You must set the GOOGLE_API_KEY environment var!");
+    let api_key = env::var("GOOGLE_API_KEY")
+        .expect("You must set the GOOGLE_API_KEY environment var!");
     let url = format!("https://maps.googleapis.com/maps/api/streetview/metadata?size=640x640&location={},{}&key={}",
         r.lat,
         r.lng,
@@ -206,8 +207,8 @@ async fn get_images(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     r.pics_tmp_dir = temp_dir.clone();
 
     for (i, url) in r.pics.iter().enumerate() {
-        let api_key =
-            env::var("GOOGLE_API_KEY").expect("You must set the GOOGLE_API_KEY environment var!");
+        let api_key = env::var("GOOGLE_API_KEY")
+            .expect("You must set the GOOGLE_API_KEY environment var!");
         let url: String = format!("{url}{api_key}");
         let response = reqwest::get(url).await?;
         let mut file = std::fs::File::create(format!("{temp_dir}/img{i}.jpg"))?;
@@ -221,11 +222,13 @@ async fn get_images(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 async fn upload_mstd_images(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
-    let mstdn_uri: String = env::var("MSTDN_URI").expect("You must set the MSTDN environment var!");
+    let mstdn_uri: String =
+        env::var("MSTDN_URI").expect("You must set the MSTDN environment var!");
 
     for (i, _) in r.pics.iter().enumerate() {
         let url = format!("https://{mstdn_uri}/api/v2/media");
-        let file = std::fs::read(format!("{}/img{}.jpg", r.pics_tmp_dir, i)).unwrap();
+        let file =
+            std::fs::read(format!("{}/img{}.jpg", r.pics_tmp_dir, i)).unwrap();
         let file_part = reqwest::multipart::Part::bytes(file)
             .file_name(format!("img-{i}.jpg"))
             .mime_str("image/jpg")
@@ -251,7 +254,8 @@ async fn upload_mstd_images(r: &mut Restaurant) -> Result<(), Box<dyn Error>> {
 }
 
 async fn post_message(r: &Restaurant) -> Result<(), Box<dyn Error>> {
-    let mstdn_uri: String = env::var("MSTDN_URI").expect("You must set the MSTDN environment var!");
+    let mstdn_uri: String =
+        env::var("MSTDN_URI").expect("You must set the MSTDN environment var!");
 
     let access_token = env::var("MSTDN_ACCESS_TOKEN")
         .expect("You must set the MSTDN_ACCESS_TOKEN environment var!");
@@ -315,8 +319,6 @@ async fn main() -> Result<()> {
     let mut rr: Restaurant = Restaurant::default();
     get_random_city(&mut rr, geopoints);
 
-    println!("rasars");
-
     search_nearby(&mut rr);
     info!("name: {}", rr.name);
     info!("pid: {}", rr.place_id);
@@ -358,9 +360,8 @@ mod tests {
     use std::{println as info, println as warn, println as debug};
 
     fn logon() {
-        let config_str = include_str!("log4rs.yaml");
-        let config = serde_yaml::from_str(config_str).unwrap();
-        log4rs::init_raw_config(config).unwrap();
+        // let config_str = include_str!("log4rs.yaml");
+        // let config = serde_yaml::from_str(config_str).unwrap();
     }
 
     #[test]
