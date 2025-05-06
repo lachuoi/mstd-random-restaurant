@@ -36,8 +36,7 @@ jobs:
 
       - name: generate checksums
         run: |
-          mv target/wasm32-wasip1/release/mstd_random_restaurant.wasm .
-          sha256sum mstd_random_restaurant.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
+          sha256sum target/wasm32-wasip1/release/mstd_random_restaurant.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: Create release
         uses: softprops/action-gh-release@v1
