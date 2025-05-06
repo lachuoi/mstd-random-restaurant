@@ -31,4 +31,3 @@ google_location_api_key = "{{ mstd_random_restaurant_google_location_api_key }}"
 
 [component.mstd-random-restaurant.build]
 command = "cargo build --target wasm32-wasip1 --release"
-watch = ["src/**/*.rs", "Cargo.toml"]
