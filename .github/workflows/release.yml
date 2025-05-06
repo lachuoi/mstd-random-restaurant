@@ -36,7 +36,7 @@ jobs:
 
       - name: generate checksums
         run: |
-          cd target/wasm32-wasip1/release/
+          mv target/wasm32-wasip1/release/mstd_random_restaurant.wasm .
           sha256sum mstd_random_restaurant.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: Create release
