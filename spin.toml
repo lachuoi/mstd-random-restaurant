@@ -2,7 +2,7 @@ spin_manifest_version = 2
 
 [application]
 name = "mstd-random-restaurant"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Seungjin Kim <seungjin@duck.com>"]
 description = "https://github.com/seungjin/lachuoi/apps/mstd-random-restaurant"
 
@@ -19,7 +19,10 @@ cron_expression = "*/20 * * * * *"
 [component.mstd-random-restaurant]
 source = "target/wasm32-wasip1/release/mstd_random_restaurant.wasm"
 sqlite_databases = ["lachuoi"]
-allowed_outbound_hosts = ["http://localhost:3000", "https://maps.googleapis.com"]
+allowed_outbound_hosts = [
+  "http://localhost:3000",
+  "https://maps.googleapis.com",
+]
 
 [component.mstd-random-restaurant.variables]
 mstd_access_token = "{{ mstd_random_restaurant_mstd_access_token }}"
