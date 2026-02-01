@@ -391,7 +391,7 @@ async fn get_image_descriptions(place: &mut Place) -> anyhow::Result<()> {
         let d3 = d2.get("description").unwrap().as_str().unwrap();
         photo.description = Some(d3.to_string());
         // It is free service. Let's give some buffer.
-        let short_sec = time::Duration::from_millis(43000);
+        let short_sec = time::Duration::from_millis(4300);
         thread::sleep(short_sec);
     }
     Ok(())
