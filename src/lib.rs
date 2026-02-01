@@ -92,7 +92,10 @@ async fn random_place() -> anyhow::Result<Vec<Geopoint>> {
     Ok(locations)
 }
 
-async fn near_by_search(geopoint: Geopoint, place: &mut Place) -> anyhow::Result<Option<usize>> {
+async fn near_by_search(
+    geopoint: Geopoint,
+    place: &mut Place,
+) -> anyhow::Result<Option<usize>> {
     let api_key = variables::get("google_location_api_key")
         .expect("You must set the SPIN_VARIABLE_MSTD_RANDOM_RESTAURANT_GOOGLE_LOCATION_API_KEY in environment var!");
     let api_url: String = format!(
@@ -240,15 +243,21 @@ async fn fetch_until_200(mut uri: String) -> anyhow::Result<Response> {
                 if let Some(location) = res.header("location") {
                     uri = location
                         .as_str()
-                        .ok_or_else(|| anyhow!("Invalid 'Location' header encoding"))?
+                        .ok_or_else(|| {
+                            anyhow!("Invalid 'Location' header encoding")
+                        })?
                         .to_string();
                 } else {
-                    return Err(anyhow!("302 response without 'Location' header"));
+                    return Err(anyhow!(
+                        "302 response without 'Location' header"
+                    ));
                 }
             }
             &200u16 => return Ok(res),
             &404u16 => return Ok(res),
-            status => return Err(anyhow!("Unexpected status code: {}", status)),
+            status => {
+                return Err(anyhow!("Unexpected status code: {}", status))
+            }
         }
     }
     Err(anyhow!(
@@ -278,7 +287,8 @@ async fn get_images(place: &mut Place) -> anyhow::Result<()> {
             .unwrap()
             .as_str()
             .unwrap_or_default();
-        let content_disposition = res.header("content-disposition").unwrap().as_str().unwrap();
+        let content_disposition =
+            res.header("content-disposition").unwrap().as_str().unwrap();
         let img_bytes = res.body().to_vec();
         photo.content_length = Some(content_length);
         photo.content_type = Some(content_type.to_string());
@@ -302,7 +312,9 @@ async fn extract_filename(header: &str) -> anyhow::Result<Option<String>> {
 }
 
 /// Manual work
-async fn build_multipart_body(photo: &mut Photo) -> anyhow::Result<(String, Vec<u8>)> {
+async fn build_multipart_body(
+    photo: &mut Photo,
+) -> anyhow::Result<(String, Vec<u8>)> {
     // Generate a random boundary string
     let boundary: String = format!(
         "------------------------{}",
@@ -316,9 +328,10 @@ async fn build_multipart_body(photo: &mut Photo) -> anyhow::Result<(String, Vec<
     // Construct the multipart form body
     let mut body = Vec::new();
 
-    let file_name = extract_filename(photo.content_disposition.as_ref().unwrap())
-        .await?
-        .unwrap();
+    let file_name =
+        extract_filename(photo.content_disposition.as_ref().unwrap())
+            .await?
+            .unwrap();
 
     // Add the opening boundary
     body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
@@ -343,7 +356,9 @@ async fn build_multipart_body(photo: &mut Photo) -> anyhow::Result<(String, Vec<
     body.extend_from_slice(format!("\r\n--{}\r\n", boundary).as_bytes());
 
     //////////////////////////////////////////
-    body.extend_from_slice(b"Content-Disposition: form-data; name=\"description\";\r\n\r\n");
+    body.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"description\";\r\n\r\n",
+    );
     if photo.description.is_some() {
         let a: String = photo.description.clone().unwrap();
         body.extend_from_slice(a.as_bytes());
@@ -376,7 +391,7 @@ async fn get_image_descriptions(place: &mut Place) -> anyhow::Result<()> {
         let d3 = d2.get("description").unwrap().as_str().unwrap();
         photo.description = Some(d3.to_string());
         // It is free service. Let's give some buffer.
-        let short_sec = time::Duration::from_millis(3 * 1000);
+        let short_sec = time::Duration::from_millis(43000);
         thread::sleep(short_sec);
     }
     Ok(())
@@ -393,7 +408,8 @@ async fn rating_stars(rating: f64) -> anyhow::Result<String> {
 }
 
 async fn upload_mstd_images(place: &mut Place) -> anyhow::Result<()> {
-    let mstd_api_uri = format!("{}/api/v2/media", variables::get("mstd_api_uri").unwrap());
+    let mstd_api_uri =
+        format!("{}/api/v2/media", variables::get("mstd_api_uri").unwrap());
     let mstd_access_token = variables::get("mstd_access_token").unwrap();
 
     for photo in &mut place.photos {
@@ -421,7 +437,8 @@ async fn upload_mstd_images(place: &mut Place) -> anyhow::Result<()> {
         }
 
         let mstd_image: Value =
-            serde_json::from_str(str::from_utf8(response.body()).unwrap()).unwrap();
+            serde_json::from_str(str::from_utf8(response.body()).unwrap())
+                .unwrap();
         let a = mstd_image["id"].as_str().unwrap().parse::<i64>().unwrap();
         photo.mstd_mediaid = Some(a);
     }
