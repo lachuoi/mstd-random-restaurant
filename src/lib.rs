@@ -51,7 +51,7 @@ async fn handle_cron_event(_: Metadata) -> anyhow::Result<()> {
         if let Some(p) = near_by_search(location, &mut place).await? {
             break p;
         }
-        std::thread::sleep(std::time::Duration::from_millis(2_500));
+        std::thread::sleep(std::time::Duration::from_millis(5_000));
     };
     get_place_details(&mut place).await?;
     get_images(&mut place).await?;
