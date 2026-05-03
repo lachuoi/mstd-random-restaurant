@@ -1,6 +1,7 @@
 mod wasi_http;
 
 use anyhow::Result;
+use base64::Engine;
 use rand::seq::SliceRandom;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -17,6 +18,7 @@ struct Place {
     address: String,
     rating: f64,
     pics_data: Vec<Vec<u8>>,
+    pics_alt_texts: Vec<String>,
     mstd_media_ids: Vec<String>,
 }
 
@@ -165,6 +167,91 @@ async fn get_place_details(r: &mut Place) -> Result<(), MyError> {
     Ok(())
 }
 
+async fn generate_alt_texts(r: &mut Place) -> Result<(), MyError> {
+    let gemini_key = env::var("GEMINI_API_KEY").or_else(|_| env::var("GOOGLE_API_KEY"));
+    
+    let gemini_key = match gemini_key {
+        Ok(k) => k,
+        Err(_) => {
+            println!("Warning: Neither GEMINI_API_KEY nor GOOGLE_API_KEY is set. Skipping alt-text generation.");
+            return Ok(());
+        }
+    };
+
+    let gemini_uri = env::var("GEMINI_API_KEY_API_URI")
+        .unwrap_or_else(|_| "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent".to_string());
+    
+    // Some proxies might require the key in the path or as a header, but the standard 
+    // Google API uses a query parameter. 
+    let url = if gemini_uri.contains("key=") {
+        gemini_uri
+    } else {
+        let separator = if gemini_uri.contains('?') { "&" } else { "?" };
+        format!("{}{}{}key={}", gemini_uri, "", separator, gemini_key)
+    };
+
+    println!("Using Gemini API at: {}", if url.contains("key=") { url.split("key=").next().unwrap_or("").to_string() + "key=***" } else { url.clone() });
+
+    for (i, data) in r.pics_data.iter().enumerate() {
+        println!("Generating alt-text for image {}/{}...", i + 1, r.pics_data.len());
+        let base64_image = base64::engine::general_purpose::STANDARD.encode(data);
+        
+        let prompt = "Describe this image in detail for a Mastodon alt-text description. Focus on the cafe atmosphere, decor, or coffee/food shown. Keep it under 400 characters.";
+        
+        let body = json!({
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64_image
+                        }
+                    }
+                ]
+            }]
+        });
+
+        let body_bytes = match serde_json::to_vec(&body) {
+            Ok(b) => b,
+            Err(e) => {
+                println!("Warning: Failed to serialize Gemini request: {:?}", e);
+                r.pics_alt_texts.push("A cafe image.".to_string());
+                continue;
+            }
+        };
+
+        let headers = vec![
+            ("Content-Type".to_string(), "application/json".to_string().into_bytes()),
+        ];
+
+        match http_request(bindings::http::types::Method::Post, &url, headers, Some(body_bytes)).await {
+            Ok(resp_body) => {
+                match serde_json::from_slice::<Value>(&resp_body) {
+                    Ok(resp) => {
+                        let alt_text = resp["candidates"][0]["content"]["parts"][0]["text"]
+                            .as_str()
+                            .unwrap_or("A cafe image.")
+                            .trim()
+                            .to_string();
+                        
+                        r.pics_alt_texts.push(alt_text);
+                    },
+                    Err(e) => {
+                        println!("Warning: Failed to parse Gemini response for image {}: {:?}", i + 1, e);
+                        r.pics_alt_texts.push("A cafe image.".to_string());
+                    }
+                }
+            },
+            Err(e) => {
+                println!("Warning: Failed to generate alt-text for image {}: {:?}", i + 1, e);
+                r.pics_alt_texts.push("A cafe image.".to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn upload_mstd_images(r: &mut Place) -> Result<(), MyError> {
     let access_token = env::var("MSTDN_ACCESS_TOKEN").expect("MSTDN_ACCESS_TOKEN not set");
     let mstdn_uri = env::var("MSTDN_URI").expect("MSTDN_URI not set");
@@ -172,13 +259,23 @@ async fn upload_mstd_images(r: &mut Place) -> Result<(), MyError> {
     for (i, data) in r.pics_data.iter().enumerate() {
         let url = format!("https://{}/api/v2/media", mstdn_uri);
         let boundary = "---------------------------12345678901234567890";
+        let alt_text = r.pics_alt_texts.get(i).cloned().unwrap_or_else(|| "A cafe image.".to_string());
         
         let mut body = Vec::new();
+        // File part
         body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
         body.extend_from_slice(format!("Content-Disposition: form-data; name=\"file\"; filename=\"img-{}.jpg\"\r\n", i).as_bytes());
         body.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
         body.extend_from_slice(data);
-        body.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"\r\n");
+
+        // Description part
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"description\"\r\n\r\n");
+        body.extend_from_slice(alt_text.as_bytes());
+        body.extend_from_slice(b"\r\n");
+
+        body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
 
         let headers = vec![
             ("Authorization".to_string(), format!("Bearer {}", access_token).into_bytes()),
@@ -285,6 +382,8 @@ async fn run() -> Result<()> {
     get_place_details(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
     println!("address: {}", rr.address);
     
+    generate_alt_texts(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
+    
     upload_mstd_images(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
     post_message(&rr).await.map_err(|e| anyhow::anyhow!(e))?;
 
@@ -312,4 +411,3 @@ mod tests {
         assert_eq!(rating_stars(3.7).unwrap(), "★★★☆");
     }
 }
-
