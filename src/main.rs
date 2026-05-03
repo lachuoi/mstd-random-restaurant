@@ -17,6 +17,7 @@ struct Place {
     place_id: String,
     address: String,
     rating: f64,
+    photo_references: Vec<String>,
     pics_data: Vec<Vec<u8>>,
     pics_alt_texts: Vec<String>,
     mstd_media_ids: Vec<String>,
@@ -120,11 +121,21 @@ async fn search_nearby(r: &mut Place) -> Result<()> {
     r.rating = p["rating"].as_f64().unwrap_or(0.0);
     r.address = p["vicinity"].as_str().unwrap_or_default().to_string();
 
+    if let Some(photos) = p["photos"].as_array() {
+        for photo in photos {
+            if let Some(photo_ref) = photo["photo_reference"].as_str() {
+                r.photo_references.push(photo_ref.to_string());
+            }
+        }
+    }
+
     Ok(())
 }
 
 async fn get_place_details(r: &mut Place) -> Result<(), MyError> {
     let api_key = env::var("GOOGLE_API_KEY").expect("GOOGLE_API_KEY not set");
+    
+    // Always fetch details to get as many photos as possible and the formatted_address.
     let url = format!(
         "https://maps.googleapis.com/maps/api/place/details/json?place_id={}&fields=photos,formatted_address&key={}",
         r.place_id, api_key
@@ -139,25 +150,28 @@ async fn get_place_details(r: &mut Place) -> Result<(), MyError> {
         r.address = addr.to_string();
     }
 
-    let mut pic_urls = Vec::new();
+    // Clear existing photo references and get all from details
+    r.photo_references.clear();
     if let Some(photos) = resp["result"]["photos"].as_array() {
-        if photos.is_empty() {
-            return Err(MyError::NoImageFromGoogle);
-        }
-        let n = photos.len().min(4);
-        for i in 0..n {
-            if let Some(photo_ref) = photos[i]["photo_reference"].as_str() {
-                pic_urls.push(format!(
-                    "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference={}&key={}",
-                    photo_ref, api_key
-                ));
+        for photo in photos {
+            if let Some(photo_ref) = photo["photo_reference"].as_str() {
+                r.photo_references.push(photo_ref.to_string());
             }
         }
-    } else {
+    }
+
+    if r.photo_references.is_empty() {
         return Err(MyError::NoImageFromGoogle);
     }
 
-    for url in pic_urls {
+    // Limit to 4 photos for Mastodon
+    let n = r.photo_references.len().min(4);
+    for i in 0..n {
+        let photo_ref = &r.photo_references[i];
+        let url = format!(
+            "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference={}&key={}",
+            photo_ref, api_key
+        );
         let data = http_request(bindings::http::types::Method::Get, &url, vec![], None)
             .await
             .map_err(|e| MyError::AnyhowError(e))?;
@@ -168,8 +182,11 @@ async fn get_place_details(r: &mut Place) -> Result<(), MyError> {
 }
 
 async fn generate_alt_texts(r: &mut Place) -> Result<(), MyError> {
+    if r.pics_data.is_empty() {
+        return Ok(());
+    }
+
     let gemini_key = env::var("GEMINI_API_KEY").or_else(|_| env::var("GOOGLE_API_KEY"));
-    
     let gemini_key = match gemini_key {
         Ok(k) => k,
         Err(_) => {
@@ -181,8 +198,6 @@ async fn generate_alt_texts(r: &mut Place) -> Result<(), MyError> {
     let gemini_uri = env::var("GEMINI_API_KEY_API_URI")
         .unwrap_or_else(|_| "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent".to_string());
     
-    // Some proxies might require the key in the path or as a header, but the standard 
-    // Google API uses a query parameter. 
     let url = if gemini_uri.contains("key=") {
         gemini_uri
     } else {
@@ -190,65 +205,76 @@ async fn generate_alt_texts(r: &mut Place) -> Result<(), MyError> {
         format!("{}{}{}key={}", gemini_uri, "", separator, gemini_key)
     };
 
-    println!("Using Gemini API at: {}", if url.contains("key=") { url.split("key=").next().unwrap_or("").to_string() + "key=***" } else { url.clone() });
+    println!("Batching alt-text generation for {} images...", r.pics_data.len());
 
-    for (i, data) in r.pics_data.iter().enumerate() {
-        println!("Generating alt-text for image {}/{}...", i + 1, r.pics_data.len());
+    let mut parts = vec![
+        json!({"text": "Describe each of these images for Mastodon alt-text. Return the descriptions as a JSON array of strings, one for each image in order. Focus on the cafe atmosphere, decor, or coffee/food shown. Keep each description under 400 characters."})
+    ];
+
+    for data in &r.pics_data {
         let base64_image = base64::engine::general_purpose::STANDARD.encode(data);
-        
-        let prompt = "Describe this image in detail for a Mastodon alt-text description. Focus on the cafe atmosphere, decor, or coffee/food shown. Keep it under 400 characters.";
-        
-        let body = json!({
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": "image/jpeg",
-                            "data": base64_image
-                        }
-                    }
-                ]
-            }]
-        });
-
-        let body_bytes = match serde_json::to_vec(&body) {
-            Ok(b) => b,
-            Err(e) => {
-                println!("Warning: Failed to serialize Gemini request: {:?}", e);
-                r.pics_alt_texts.push("A cafe image.".to_string());
-                continue;
+        parts.push(json!({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": base64_image
             }
-        };
+        }));
+    }
 
-        let headers = vec![
-            ("Content-Type".to_string(), "application/json".to_string().into_bytes()),
-        ];
+    let body = json!({
+        "contents": [{
+            "parts": parts
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json"
+        }
+    });
 
-        match http_request(bindings::http::types::Method::Post, &url, headers, Some(body_bytes)).await {
-            Ok(resp_body) => {
-                match serde_json::from_slice::<Value>(&resp_body) {
-                    Ok(resp) => {
-                        let alt_text = resp["candidates"][0]["content"]["parts"][0]["text"]
-                            .as_str()
-                            .unwrap_or("A cafe image.")
-                            .trim()
-                            .to_string();
-                        
-                        r.pics_alt_texts.push(alt_text);
-                    },
-                    Err(e) => {
-                        println!("Warning: Failed to parse Gemini response for image {}: {:?}", i + 1, e);
-                        r.pics_alt_texts.push("A cafe image.".to_string());
+    let body_bytes = match serde_json::to_vec(&body) {
+        Ok(b) => b,
+        Err(e) => {
+            println!("Warning: Failed to serialize Gemini request: {:?}", e);
+            for _ in 0..r.pics_data.len() {
+                r.pics_alt_texts.push("A cafe image.".to_string());
+            }
+            return Ok(());
+        }
+    };
+
+    let headers = vec![
+        ("Content-Type".to_string(), "application/json".to_string().into_bytes()),
+    ];
+
+    match http_request(bindings::http::types::Method::Post, &url, headers, Some(body_bytes)).await {
+        Ok(resp_body) => {
+            match serde_json::from_slice::<Value>(&resp_body) {
+                Ok(resp) => {
+                    let text = resp["candidates"][0]["content"]["parts"][0]["text"]
+                        .as_str()
+                        .unwrap_or("");
+                    
+                    if let Ok(alt_texts) = serde_json::from_str::<Vec<String>>(text) {
+                        r.pics_alt_texts = alt_texts;
+                    } else {
+                        println!("Warning: Gemini did not return a valid JSON array. Fallback to single text.");
+                        r.pics_alt_texts.push(text.to_string());
                     }
+                },
+                Err(e) => {
+                    println!("Warning: Failed to parse Gemini response: {:?}", e);
                 }
-            },
-            Err(e) => {
-                println!("Warning: Failed to generate alt-text for image {}: {:?}", i + 1, e);
-                r.pics_alt_texts.push("A cafe image.".to_string());
             }
+        },
+        Err(e) => {
+            println!("Warning: Failed to generate alt-texts: {:?}", e);
         }
     }
+
+    // Ensure we have at least one alt-text for each image
+    while r.pics_alt_texts.len() < r.pics_data.len() {
+        r.pics_alt_texts.push("A cafe image.".to_string());
+    }
+    
     Ok(())
 }
 
@@ -371,23 +397,44 @@ fn main() -> Result<()> {
 async fn run() -> Result<()> {
     let geopoints = get_geopoints()?;
 
-    let mut rr: Place = Place::default();
-    get_random_city(&mut rr, geopoints).map_err(|e| anyhow::anyhow!(e))?;
-    search_nearby(&mut rr).await?;
-    
-    println!("name: {}", rr.name);
-    println!("pid: {}", rr.place_id);
-    println!("rating: {}", rr.rating);
-    
-    get_place_details(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
-    println!("address: {}", rr.address);
-    
-    generate_alt_texts(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
-    
-    upload_mstd_images(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
-    post_message(&rr).await.map_err(|e| anyhow::anyhow!(e))?;
+    for i in 0..10 {
+        let mut rr: Place = Place::default();
+        if let Err(e) = get_random_city(&mut rr, geopoints.clone()) {
+            eprintln!("Attempt {}: Error picking city: {:?}", i + 1, e);
+            continue;
+        }
+        
+        if let Err(e) = search_nearby(&mut rr).await {
+            eprintln!("Attempt {}: Error searching nearby: {:?}", i + 1, e);
+            continue;
+        }
+        
+        println!("Attempt {}: Checking cafe: {} ({})", i + 1, rr.name, rr.place_id);
+        
+        match get_place_details(&mut rr).await {
+            Ok(_) => {
+                if rr.pics_data.len() < 4 {
+                    println!("Only {} images found, trying another...", rr.pics_data.len());
+                    continue;
+                }
+                
+                println!("Found cafe with {} images", rr.pics_data.len());
+                println!("rating: {}", rr.rating);
+                println!("address: {}", rr.address);
+                
+                generate_alt_texts(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
+                upload_mstd_images(&mut rr).await.map_err(|e| anyhow::anyhow!(e))?;
+                post_message(&rr).await.map_err(|e| anyhow::anyhow!(e))?;
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("Attempt {}: Error getting details: {:?}", i + 1, e);
+                continue;
+            }
+        }
+    }
 
-    Ok(())
+    Err(anyhow::anyhow!("Could not find a cafe with 4 images after 10 attempts"))
 }
 
 #[cfg(test)]
