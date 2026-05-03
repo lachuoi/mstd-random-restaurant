@@ -176,6 +176,10 @@ async fn get_place_details(r: &mut Restaurant) -> Result<(), MyError> {
 }
 
 async fn generate_alt_texts(r: &mut Restaurant) -> Result<(), MyError> {
+    if r.pics_data.is_empty() {
+        return Ok(());
+    }
+
     let gemini_key =
         env::var("GEMINI_API_KEY").or_else(|_| env::var("GOOGLE_API_KEY"));
 
@@ -197,67 +201,72 @@ async fn generate_alt_texts(r: &mut Restaurant) -> Result<(), MyError> {
         format!("{}{}{}key={}", gemini_uri, "", separator, gemini_key)
     };
 
-    for (i, data) in r.pics_data.iter().enumerate() {
-        println!(
-            "Generating alt-text for image {}/{}...",
-            i + 1,
-            r.pics_data.len()
-        );
-        let base64_image =
-            base64::engine::general_purpose::STANDARD.encode(data);
+    println!("Generating alt-texts for {} images in one batch...", r.pics_data.len());
+    
+    let mut parts = vec![
+        json!({"text": "Describe these images for Mastodon alt-text. Return a JSON object with a field 'descriptions' containing an array of strings. Each string should describe one image in order, focusing on the restaurant atmosphere, decor, or food. Keep each description under 400 characters."})
+    ];
 
-        let prompt = "Describe this image in detail for a Mastodon alt-text description. Focus on the restaurant atmosphere, decor, or food shown. Keep it under 400 characters.";
+    for data in &r.pics_data {
+        let base64_image = base64::engine::general_purpose::STANDARD.encode(data);
+        parts.push(json!({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": base64_image
+            }
+        }));
+    }
 
-        let body = json!({
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": "image/jpeg",
-                            "data": base64_image
+    let body = json!({
+        "contents": [{
+            "parts": parts
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json"
+        }
+    });
+
+    let body_bytes = serde_json::to_vec(&body)
+        .map_err(|e| MyError::AnyhowError(e.into()))?;
+    let headers = vec![(
+        "Content-Type".to_string(),
+        "application/json".to_string().into_bytes(),
+    )];
+
+    match http_request(
+        bindings::http::types::Method::Post,
+        &url,
+        headers,
+        Some(body_bytes),
+    )
+    .await
+    {
+        Ok(resp_body) => {
+            let resp: Value = serde_json::from_slice(&resp_body)
+                .map_err(|e| MyError::AnyhowError(e.into()))?;
+            
+            if let Some(content) = resp["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                if let Ok(json_resp) = serde_json::from_str::<Value>(content) {
+                    if let Some(descs) = json_resp["descriptions"].as_array() {
+                        for d in descs {
+                            if let Some(s) = d.as_str() {
+                                r.pics_alt_texts.push(s.to_string());
+                            }
                         }
                     }
-                ]
-            }]
-        });
-
-        let body_bytes = serde_json::to_vec(&body)
-            .map_err(|e| MyError::AnyhowError(e.into()))?;
-        let headers = vec![(
-            "Content-Type".to_string(),
-            "application/json".to_string().into_bytes(),
-        )];
-
-        match http_request(
-            bindings::http::types::Method::Post,
-            &url,
-            headers,
-            Some(body_bytes),
-        )
-        .await
-        {
-            Ok(resp_body) => {
-                let resp: Value = serde_json::from_slice(&resp_body)
-                    .map_err(|e| MyError::AnyhowError(e.into()))?;
-                let alt_text = resp["candidates"][0]["content"]["parts"][0]
-                    ["text"]
-                    .as_str()
-                    .unwrap_or("A restaurant image.")
-                    .trim()
-                    .to_string();
-                r.pics_alt_texts.push(alt_text);
-            }
-            Err(e) => {
-                println!(
-                    "Warning: Failed to generate alt-text for image {}: {:?}",
-                    i + 1,
-                    e
-                );
-                r.pics_alt_texts.push("A restaurant image.".to_string());
+                }
             }
         }
+        Err(e) => {
+            println!("Warning: Failed to generate batch alt-texts: {:?}", e);
+        }
     }
+
+    // Ensure we have enough alt texts (fallback)
+    while r.pics_alt_texts.len() < r.pics_data.len() {
+        r.pics_alt_texts.push("A restaurant image.".to_string());
+    }
+
     Ok(())
 }
 
