@@ -27,7 +27,11 @@ run flags="": (build flags)
         -S inherit-network=y \
         -S allow-ip-name-lookup=y \
         -S inherit-env=y \
-        ./target/wasm32-wasip2/$(if [ "{{flags}}" == "--release" ]; then echo "release"; else echo "debug"; fi)/mstd-random-cafe.wasm
+        ./target/wasm32-wasip2/$(if [ "{{flags}}" == "--release" ]; then echo "release"; else echo "debug"; fi)/mstd-random-restaurant.wasm
 
 # Run the project in release mode
 run-release: (run "--release")
+
+# Test the project
+test:
+    cargo test
