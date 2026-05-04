@@ -1,25 +1,33 @@
-# Set the default recipe
-default:
-    just test
-    cargo build --release
+# Default task
+default: help
 
-# Run linting and unit tests
-test:
-    just lint
-    just test-unit
+# Show available tasks
+help:
+    @just --list
 
-# Lint the codebase
-lint:
-    cargo clippy --all-features -- -D warnings
-    cargo fmt -- --check
+# Check the project for errors
+check:
+    cargo component check --target wasm32-wasip2
 
-# Run unit tests with dynamic target
-test-unit:
-    RUST_LOG=${RUST_LOG} cargo test --target=`rustc -vV | sed -n 's|host: ||p'`
+# Build the WebAssembly component
+build flags="":
+    cargo component build --target wasm32-wasip2 {{flags}}
 
-release:
-    #!/usr/bin/env fish
-    set this_version (grep '^version =' Cargo.toml | head -n 1 | sed -E 's/version = "(.*)"/\1/')
-    git tag v$this_version
-    git push origin v$this_version
-    set -e this_version
+# Build the component in release mode
+build-release: (build "--release")
+
+# Clean the build artifacts
+clean:
+    cargo clean
+
+# Run the project
+run flags="": (build flags)
+    @wasmtime run \
+        -S http \
+        -S inherit-network=y \
+        -S allow-ip-name-lookup=y \
+        -S inherit-env=y \
+        ./target/wasm32-wasip2/$(if [ "{{flags}}" == "--release" ]; then echo "release"; else echo "debug"; fi)/mstd-random-cafe.wasm
+
+# Run the project in release mode
+run-release: (run "--release")
