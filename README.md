@@ -8,9 +8,11 @@ A sophisticated Mastodon bot that discovers and shares charming restaurants from
 
 This project is a modern **WASI P2 (WebAssembly System Interface Preview 2)** component, showcasing the power of sandboxed, cross-platform WebAssembly for cloud-native automation.
 
+It is a Rust implementation of [random-restaurant](https://twitter.com/_restaurant_bot) by [br@seph](https://twitter.com/on3ness). The original Node.js source can be found [here](https://gitlab.com/joe_sch/random-restaurant).
+
 ## 🚀 How it Works
 
-1.  **Global Search:** Selects a city from a curated database of 10,000+ locations, weighted by population and specific regions.
+1.  **Global Search:** Selects a city from a curated database of 40,000+ locations, weighted by population and specific regions.
 2.  **Restaurant Discovery:** Queries the Google Places API for "restaurants" within a 50km radius, filtering for those with high ratings (3.0+) and at least 10 reviews.
 3.  **Visual Enrichment:** Fetches up to 4 high-quality photos of the selected restaurant.
 4.  **AI Accessibility:** Uses the `gemini-1.5-flash` model to analyze the images and generate meaningful alt-text descriptions, ensuring the bot is accessible to everyone.
@@ -19,7 +21,7 @@ This project is a modern **WASI P2 (WebAssembly System Interface Preview 2)** co
 ## 🛠 Prerequisites
 
 -   **Rust:** Latest stable version.
--   **Wasmtime:** The recommended WASM runtime.
+-   **Wasmtime:** The recommended WASM runtime (version 14+ recommended for WASI P2).
 -   **cargo-component:** Required to build WASI P2 components.
     ```bash
     cargo install cargo-component
@@ -28,23 +30,26 @@ This project is a modern **WASI P2 (WebAssembly System Interface Preview 2)** co
 
 ## ⚙️ Configuration
 
-The bot requires several environment variables to function. You can provide these in a `.env` file:
+The bot requires several environment variables to function. You can provide these in a `.env` file or export them directly:
 
-| Variable | Description |
-| :--- | :--- |
-| `GOOGLE_API_KEY` | Your Google Cloud API key with Places and Gemini API access. |
-| `MSTDN_ACCESS_TOKEN` | Access token for your Mastodon bot account. |
-| `MSTDN_URI` | The domain of your Mastodon instance (e.g., `mastodon.social`). |
-| `GEMINI_API_KEY` | (Optional) Separate key for Gemini if different from `GOOGLE_API_KEY`. |
+| Variable | Description | Default / Example |
+| :--- | :--- | :--- |
+| `GOOGLE_API_KEY` | Your Google Cloud API key with Places and Gemini API access. | Required |
+| `MSTDN_ACCESS_TOKEN` | Access token for your Mastodon bot account. | Required |
+| `MSTDN_URI` | The domain of your Mastodon instance. | `mastodon.social` |
+| `GEMINI_API_KEY` | (Optional) Separate key for Gemini if different from `GOOGLE_API_KEY`. | - |
+| `WEIGHTED_COUNTRIES` | (Optional) Comma-separated ISO2 codes to prioritize in random selection. | `DE,FR,ES,IT,TW,TH,VN,PT,KR,SG,HK` |
 
 ## 💻 Development
 
 The project uses `just` to simplify development workflows:
 
 -   **Build:** `just build` (targets `wasm32-wasip2`)
+-   **Build Release:** `just build-release`
 -   **Run:** `just run` (executes locally via `wasmtime`)
--   **Lint:** `cargo clippy` & `cargo fmt`
+-   **Run Release:** `just run-release`
 -   **Test:** `just test`
+-   **Clean:** `just clean`
 
 ## 📦 Deployment
 
@@ -54,15 +59,13 @@ Build a tiny, secure WASM-based container image:
 docker build -t mstd-random-restaurant -f Containerfile .
 ```
 
-### Systemd (Linux)
-To run the bot on a schedule (e.g., every hour), you can use the provided systemd units:
+### Automation
+To run the bot on a schedule (e.g., every hour), you can use a `cron` job or a `systemd` timer. Since it's a WASM component, you can run it with `wasmtime` directly in your task scheduler.
 
-1.  Copy `mstd-random-restaurant.service` and `mstd-random-restaurant.timer` to `/etc/systemd/system/`.
-2.  Update the `WorkingDirectory` and `ExecStart` paths in the service file.
-3.  Enable and start the timer:
-    ```bash
-    systemctl enable --now mstd-random-restaurant.timer
-    ```
+Example `cron` entry:
+```bash
+0 * * * * cd /path/to/project && just run-release >> /var/log/mstd-bot.log 2>&1
+```
 
 ## 📄 License
 
