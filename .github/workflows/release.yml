@@ -20,20 +20,26 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           default: true
           components: clippy, rustfmt
+
+      - name: Install cargo-component
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-component
 
       - name: Install Just
         uses: baptiste0928/cargo-install@v3
         with:
           crate: just
 
-      - name: Just
-        run: just
+      - name: Build Release
+        run: just build-release
 
       - name: generate checksums
         run: |
-          sha256sum target/release/mstd-random-cafe > checksums-${{ env.RELEASE_VERSION }}.txt
+          sha256sum target/wasm32-wasip2/release/mstd-random-restaurant.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -41,7 +47,7 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           files: |
-            target/release/mstd-random-cafe
+            target/wasm32-wasip2/release/mstd-random-restaurant.wasm
             checksums-${{ env.RELEASE_VERSION }}.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}

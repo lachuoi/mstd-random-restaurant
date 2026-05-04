@@ -20,13 +20,13 @@ COPY . .
 # Build the release binary
 RUN cargo component build --release --target wasm32-wasip2
 
-RUN chmod +x /usr/src/app/target/wasm32-wasip2/release/mstd-random-cafe.wasm
+RUN chmod +x /usr/src/app/target/wasm32-wasip2/release/mstd-random-restaurant.wasm
 
 # Stage 2: Create the WASM OCI image
 FROM scratch
 
 # Copy the built WASM component to the root
-COPY --from=builder /usr/src/app/target/wasm32-wasip2/release/mstd-random-cafe.wasm /mstd-random-cafe.wasm
+COPY --from=builder /usr/src/app/target/wasm32-wasip2/release/mstd-random-restaurant.wasm /mstd-random-restaurant.wasm
 
 # Set the entrypoint to the WASM file.
-ENTRYPOINT ["/mstd-random-cafe.wasm"]
+ENTRYPOINT ["/mstd-random-restaurant.wasm"]

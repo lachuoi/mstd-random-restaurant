@@ -1,7 +1,0 @@
-version: "3"
-services:
-  mstd-random-restaurant:
-    container_name: "mstd-random-restaurant"
-    image: "codeberg.org/seungjin/mstd-random-restaurant"
-    env_file: .env
-
