@@ -3,7 +3,7 @@ use std::env;
 use std::error::Error;
 use std::io::Cursor;
 
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info};
 use log4rs;
 use serde_yaml;
 
@@ -20,7 +20,6 @@ use serde::Deserialize;
 
 use thiserror::Error;
 use anyhow::{Context, Result};
-use serde::__private::from_utf8_lossy;
 
 use std::{thread, time};
 
@@ -366,11 +365,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("name: {}", rr.name);
     info!("pid: {}", rr.place_id);
     info!("rating: {}", rr.rating);
-    get_place_details(&mut rr);
+    let _ = get_place_details(&mut rr);
     info!("address: {}", rr.address);
-    verify_nearby(&mut rr);
-    //search_street_image(&mut rr);
-    //info!("street_img: {}", rr.pics[0].to_string());
+    let _ = verify_nearby(&mut rr);
 
     let runtime = tokio::runtime::Runtime::new().unwrap();
     match runtime.block_on(get_images(&mut rr)) {
@@ -386,8 +383,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Err(_) => error!("Posting failed"),
     };
 
-    post_message(&rr);
-    clean_images(&rr);
+    let _ = runtime.block_on(post_message(&rr));
+    let _ = clean_images(&rr);
 
     println!("{:#?}", rr);
     debug!("Hello, world!");
@@ -399,15 +396,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{println as info, println as warn, println as debug};
-    use std::borrow::Borrow;
-    use std::ops::Deref;
-
-    fn logon() {
-        let config_str = include_str!("log4rs.yaml");
-        let config = serde_yaml::from_str(config_str).unwrap();
-        log4rs::init_raw_config(config).unwrap();
-    }
 
     #[test]
     //#[ignore = "not yet implemented"]
@@ -447,9 +435,3 @@ mod tests {
         assert_eq!( rating_stars(3.7).unwrap(), "★★★☆" );
     }
 }
-
-
-
-
-
-
