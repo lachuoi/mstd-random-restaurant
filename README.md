@@ -1,72 +1,71 @@
 # Mastodon Random Cafe ☕️🌍
 
-[![Test](https://github.com/seungjin/mstd-random-cafe/actions/workflows/build.yml/badge.svg)](https://github.com/seungjin/mstd-random-cafe/actions/workflows/build.yml)
+[![Build & Test](https://github.com/seungjin/mstd-random-cafe/actions/workflows/build.yml/badge.svg)](https://github.com/seungjin/mstd-random-cafe/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A Mastodon bot that picks a random city, searches for a nearby cafe using the Google Places API, generates an AI description for alt-text using Google Gemini, and posts the results with photos to Mastodon.
+A sophisticated Mastodon bot that discovers and shares charming cafes from around the world. It picks a random global city, finds a highly-rated cafe nearby via Google Places, generates accessible AI descriptions for images using Google Gemini, and posts a beautifully formatted status to Mastodon.
 
-Built as a modern **WASI P2 (WebAssembly System Interface Preview 2)** component.
+This project is a modern **WASI P2 (WebAssembly System Interface Preview 2)** component, showcasing the power of sandboxed, cross-platform WebAssembly for cloud-native automation.
 
-## Features
+## 🚀 How it Works
 
-- **Random City Selection:** Weighted selection from a global database of cities.
-- **Google Places Integration:** Finds cafes with high ratings and user engagement.
-- **AI Alt-Text:** Uses Google Gemini (via `gemini-1.5-flash`) to generate descriptive alt-text for accessibility.
-- **WASI P2 Architecture:** Fully sandboxed execution using the latest WebAssembly standards.
-- **Multi-Image Support:** Uploads and attaches up to 4 photos per post.
+1.  **Global Search:** Selects a city from a curated database of 10,000+ locations, weighted by population and specific regions.
+2.  **Cafe Discovery:** Queries the Google Places API for "cafes" within a 50km radius, filtering for those with high ratings (3.0+) and significant review counts (100+).
+3.  **Visual Enrichment:** Fetches up to 4 high-quality photos of the selected cafe.
+4.  **AI Accessibility:** Uses the `gemini-1.5-flash` model to analyze the images and generate meaningful alt-text descriptions, ensuring the bot is accessible to everyone.
+5.  **Mastodon Dispatch:** Formats a post with the cafe name, address, star rating, and a Google Maps link, then uploads the images with their AI-generated alt-text.
 
-## Architecture
+## 🛠 Prerequisites
 
-This project was recently migrated from a native Rust application to a **WASI P2 Component**. It uses:
-- `wasi-http` for all outbound network requests.
-- `futures` executor for async/await support in WASM.
-- `cargo-component` for building the WASM component.
+-   **Rust:** Latest stable version.
+-   **Wasmtime:** The recommended WASM runtime.
+-   **cargo-component:** Required to build WASI P2 components.
+    ```bash
+    cargo install cargo-component
+    ```
+-   **Just:** A handy task runner used for all build/run commands.
 
-## Prerequisites
+## ⚙️ Configuration
 
-- [Rust](https://rustup.rs/) (stable)
-- [Just](https://github.com/casey/just) (task runner)
-- [Wasmtime](https://wasmtime.dev/) (WASM runtime)
-- `cargo-component`: `cargo install cargo-component`
+The bot requires several environment variables to function. You can provide these in a `.env` file:
 
-## Setup
+| Variable | Description |
+| :--- | :--- |
+| `GOOGLE_API_KEY` | Your Google Cloud API key with Places and Gemini API access. |
+| `MSTDN_ACCESS_TOKEN` | Access token for your Mastodon bot account. |
+| `MSTDN_URI` | The domain of your Mastodon instance (e.g., `mastodon.social`). |
+| `GEMINI_API_KEY` | (Optional) Separate key for Gemini if different from `GOOGLE_API_KEY`. |
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/seungjin/mstd-random-cafe.git
-   cd mstd-random-cafe
-   ```
+## 💻 Development
 
-2. **Configure environment variables:**
-   Create a `.env` file or export the following:
-   - `GOOGLE_API_KEY`: Your Google Cloud API key (Places & Gemini).
-   - `MSTDN_ACCESS_TOKEN`: Your Mastodon application access token.
-   - `MSTDN_URI`: Your Mastodon instance domain (e.g., `mastodon.social`).
-   - `GEMINI_API_KEY`: (Optional) Defaults to `GOOGLE_API_KEY`.
+The project uses `just` to simplify development workflows:
 
-## Development
+-   **Build:** `just build` (targets `wasm32-wasip2`)
+-   **Run:** `just run` (executes locally via `wasmtime`)
+-   **Lint:** `cargo clippy` & `cargo fmt`
+-   **Test:** `cargo test`
 
-Use `just` to manage common tasks:
+## 📦 Deployment
 
-- **Check:** `just check`
-- **Build:** `just build`
-- **Build Release:** `just build-release`
-- **Run:** `just run` (runs the component using `wasmtime`)
-
-## Deployment
-
-The project includes a `Containerfile` to build and package the WASM component into an OCI image.
-
+### OCI / Docker
+Build a tiny, secure WASM-based container image:
 ```bash
 docker build -t mstd-random-cafe -f Containerfile .
 ```
 
-To run as a scheduled task, you can use the provided `.service` and `.timer` files (note: these may require updates to match your specific container runtime).
+### Systemd (Linux)
+To run the bot on a schedule (e.g., every hour), you can use the provided systemd units:
 
-## License
+1.  Copy `mstd-random-cafe.service` and `mstd-random-cafe.timer` to `/etc/systemd/system/`.
+2.  Update the `WorkingDirectory` and `ExecStart` paths in the service file.
+3.  Enable and start the timer:
+    ```bash
+    systemctl enable --now mstd-random-cafe.timer
+    ```
+
+## 📄 License
 
 This project is dual-licensed under the **MIT License** and the **Apache License (Version 2.0)**.
-
-- [LICENSE-MIT](LICENSE-MIT)
-- [LICENSE-APACHE](LICENSE-APACHE)
 
 Copyright (c) 2026 Seungjin Kim
