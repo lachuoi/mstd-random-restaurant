@@ -85,7 +85,7 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
 async fn ask_to_google(r: &Place) -> Result<Vec<Value>> {
     let api_key = env::var("GOOGLE_API_KEY").expect("GOOGLE_API_KEY not set");
     let excluded_types_env =
-        env::var("EXCLUDED_PLACE_TYPES").unwrap_or_else(|_| {
+        env::var("EXCLUDED_PLACE_TYPE").unwrap_or_else(|_| {
             "hotel,lodge,lodging,gas_station,convenience_store,\
              grocery_or_supermarket,night_club,bar,cafe"
                 .to_string()

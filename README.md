@@ -39,6 +39,7 @@ The bot requires several environment variables to function. You can provide thes
 | `MSTDN_URI` | The domain of your Mastodon instance. | `mastodon.social` |
 | `GEMINI_API_KEY` | (Optional) Separate key for Gemini if different from `GOOGLE_API_KEY`. | - |
 | `WEIGHTED_COUNTRIES` | (Optional) Comma-separated ISO2 codes to prioritize in random selection. | `DE,FR,ES,IT,TW,TH,VN,PT,KR,SG,HK` |
+| `EXCLUDED_PLACE_TYPE` | (Optional) Comma-separated Google Places types to exclude from selection. | `hotel,lodge,lodging,gas_station,convenience_store,grocery_or_supermarket,night_club,bar,cafe` |
 
 ## 💻 Development
 
