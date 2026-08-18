@@ -74,6 +74,9 @@ async fn http_request_recursive(
     };
 
     let request = OutgoingRequest::new(request_headers);
+    let authority = parsed_url
+        .host_str()
+        .ok_or_else(|| anyhow::anyhow!("missing host in URL: {}", url))?;
     request
         .set_method(&method)
         .map_err(|_| anyhow::anyhow!("failed to set method"))?;
@@ -81,7 +84,7 @@ async fn http_request_recursive(
         .set_scheme(Some(&scheme))
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
     request
-        .set_authority(Some(parsed_url.host_str().unwrap()))
+        .set_authority(Some(authority))
         .map_err(|_| anyhow::anyhow!("failed to set authority"))?;
     request
         .set_path_with_query(Some(&path_with_query))
@@ -150,6 +153,27 @@ async fn http_request_recursive(
                             method.clone()
                         };
 
+                        // When the method changes to GET, the request body and
+                        // its Content-* headers must be dropped.
+                        let (headers, body) = if !is_get
+                            && matches!(
+                                next_method,
+                                bindings::http::types::Method::Get
+                            ) {
+                            let headers = headers
+                                .into_iter()
+                                .filter(|(k, _)| {
+                                    !k.eq_ignore_ascii_case("content-length")
+                                        && !k.eq_ignore_ascii_case(
+                                            "content-type",
+                                        )
+                                })
+                                .collect();
+                            (headers, None)
+                        } else {
+                            (headers, body)
+                        };
+
                         return http_request_recursive(
                             next_method,
                             &absolute_location,
@@ -163,15 +187,27 @@ async fn http_request_recursive(
             }
 
             if status < 200 || status >= 300 {
-                let mut error_body = String::new();
+                let mut error_bytes: Vec<u8> = Vec::new();
                 if let Ok(body) = response.consume() {
                     if let Ok(stream) = body.stream() {
-                        if let Ok(data) = stream.blocking_read(1024) {
-                            error_body =
-                                String::from_utf8_lossy(&data).to_string();
+                        loop {
+                            match stream.blocking_read(1024 * 64) {
+                                Ok(data) => {
+                                    if data.is_empty() {
+                                        break;
+                                    }
+                                    error_bytes.extend_from_slice(&data);
+                                }
+                                Err(
+                                    bindings::io::streams::StreamError::Closed,
+                                ) => break,
+                                Err(_) => break,
+                            }
                         }
                     }
                 }
+
+                let error_body = String::from_utf8_lossy(&error_bytes);
 
                 eprintln!("\n=== HTTP REQUEST FAILED ===");
                 eprintln!("Method: {:?}", method);

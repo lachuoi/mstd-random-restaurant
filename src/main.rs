@@ -56,7 +56,7 @@ fn get_random_city(r: &mut Place, g: Vec<Geopoint>) -> Result<(), MyError> {
     let weighted_countries_env = env::var("WEIGHTED_COUNTRIES")
         .unwrap_or_else(|_| "DE,GB,FR,ES,IT,TW,TH,VN,MX,PT,KR".to_string());
     let weighted_countries: Vec<&str> =
-        weighted_countries_env.split(',').collect();
+        weighted_countries_env.split(',').map(str::trim).collect();
 
     let mg = g
         .iter()
@@ -103,6 +103,19 @@ async fn ask_to_google(r: &Place) -> Result<Vec<Value>> {
             .await?;
     let resp: Value = serde_json::from_slice(&resp_body)?;
 
+    // The Places API returns HTTP 200 even for request errors, so the
+    // status field must be checked explicitly.
+    match resp["status"].as_str().unwrap_or("") {
+        "OK" | "ZERO_RESULTS" | "" => {}
+        other => {
+            return Err(anyhow::anyhow!(
+                "Google Places API error: {} ({})",
+                other,
+                resp["error_message"].as_str().unwrap_or("no message")
+            ));
+        }
+    }
+
     let mut filtered_places: Vec<Value> = Vec::new();
     if let Some(results) = resp["results"].as_array() {
         for i in results {
@@ -126,10 +139,26 @@ async fn ask_to_google(r: &Place) -> Result<Vec<Value>> {
 }
 
 async fn search_nearby(r: &mut Place) -> Result<()> {
+    const MAX_CITY_RETRIES: usize = 10;
+
     let mut filtered_places = ask_to_google(r).await?;
+    let mut retries = 0;
     while filtered_places.is_empty() {
-        // In WASI, we don't have thread::sleep, but we can use poll/subscribe
-        // For simplicity, let's just pick another city immediately
+        if retries >= MAX_CITY_RETRIES {
+            return Err(anyhow::anyhow!(
+                "no places found after {} city attempts",
+                MAX_CITY_RETRIES
+            ));
+        }
+        retries += 1;
+        println!(
+            "No places found, trying another city ({}/{})...",
+            retries, MAX_CITY_RETRIES
+        );
+        // In WASI, we don't have thread::sleep, so use poll/subscribe
+        // for a 1 second buffer between retries.
+        bindings::clocks::monotonic_clock::subscribe_duration(1_000_000_000)
+            .block();
         let geopoints = get_geopoints()?;
         get_random_city(r, geopoints).map_err(|e| anyhow::anyhow!(e))?;
         filtered_places = ask_to_google(r).await?;
