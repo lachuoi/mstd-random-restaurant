@@ -31,7 +31,3 @@ run flags="": (build flags)
 
 # Run the project in release mode
 run-release: (run "--release")
-
-# Test the project
-test:
-    cargo test

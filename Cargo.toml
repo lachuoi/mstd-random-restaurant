@@ -1,7 +1,9 @@
 [package]
 name = "mstd-random-restaurant"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+authors = ["Seungjin Kim <seungjin@duck.com>"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 log = "0.4"
